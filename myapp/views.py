@@ -48,14 +48,14 @@ class ConvolutionAPIView(APIView):
 
             # Define a convolution kernel.
             # Here we use a simple edge detection kernel.
-            kernel = np.array([
+            edge_detect_kernel = np.array([
                 [-1, -1, -1],
                 [-1,  8, -1],
                 [-1, -1, -1]
             ], dtype=np.int8)
 
             # Pass the image and kernel to the hardware accelerator.
-            result_np = conv2d_driver.conv2d(image_np, kernel)
+            result_np = conv2d_driver.conv2d(image_np, edge_detect_kernel)
 
             # Convert the resulting NumPy array back into an image.
             result_image = Image.fromarray(result_np)
