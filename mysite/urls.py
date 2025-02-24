@@ -14,10 +14,10 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
 from django.urls import path
-from myapp.views import AdditionAPIView
+from myapp.views import Conv2DReferenceView
 
 urlpatterns = [
-    path('', AdditionAPIView.as_view(), name='myapp'),
+    path('', Conv2DReferenceView.as_view(), name='conv2d_reference'),
+    # path('add/', AdditionAPIView.as_view(), name='add'),
 ]
