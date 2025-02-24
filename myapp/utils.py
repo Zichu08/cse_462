@@ -1,6 +1,5 @@
 # myapp/utils.py
 import numpy as np
-from PIL import Image
 
 def flexible_conv2d(image_array, kernel, padding='reflect'):
     """

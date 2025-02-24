@@ -1,3 +1,4 @@
+# mysite/urls.py
 """
 URL configuration for mysite project.
 
@@ -14,10 +15,12 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.urls import path
-from myapp.views import Conv2DReferenceView
+from myapp.views import AdditionAPIView, ConvolutionAPIView, Conv2DReferenceView
 
 urlpatterns = [
+    path('add/', AdditionAPIView.as_view(), name='addition'),
+    path('convolve/', ConvolutionAPIView.as_view(), name='convolution'),
     path('', Conv2DReferenceView.as_view(), name='conv2d_reference'),
-    # path('add/', AdditionAPIView.as_view(), name='add'),
 ]
