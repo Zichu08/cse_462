@@ -50,10 +50,6 @@ class Conv2DReferenceView(View):
             # you could do:
             # pil_image = pil_image.convert("RGB")
 
-            # Convert to NumPy
-            image_np = np.array(pil_image)
-            # shape could be (H, W) for grayscale PNG or (H, W, 3/4) for color
-
             # 2. Retrieve the selected kernel type
             kernel_type = form.cleaned_data['kernel_type']
             # Get the corresponding kernel
@@ -64,6 +60,10 @@ class Conv2DReferenceView(View):
             if 'edge_detect' in kernel_type.lower():
                 print("edge_detect")
                 pil_image = pil_image.convert('L')
+            
+            # Convert to NumPy
+            image_np = np.array(pil_image)
+            # shape could be (H, W) for grayscale PNG or (H, W, 3/4) for color
 
             # 3. Time the software convolution
             start_time = time.perf_counter()
