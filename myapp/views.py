@@ -10,7 +10,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import AdditionSerializer, ImageUploadSerializer
 from .hardware import scalar_add, conv2d_driver
-# We need to support file uploads so we use the MultiPartParser.
 from rest_framework.parsers import MultiPartParser, FormParser
 import numpy as np
 import time
@@ -31,7 +30,7 @@ class AdditionAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# New convolution API.
+# New convolution API for hardware part computation (not complete yet)
 class ConvolutionAPIView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 

@@ -1,7 +1,5 @@
 # myapp/hardware.py
 from pynq import DefaultIP, Overlay, allocate
-import numpy as np
-
 
 class AddDriver(DefaultIP):
     def __init__(self, description):
