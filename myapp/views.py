@@ -58,6 +58,12 @@ class Conv2DReferenceView(View):
             kernel_type = form.cleaned_data['kernel_type']
             # Get the corresponding kernel
             kernel = get_kernel_by_type(kernel_type)
+            
+            # 2a. If the user selected an edge-detect kernel, 
+            #     convert the image to grayscale automatically.
+            if 'edge_detect' in kernel_type.lower():
+                print("edge_detect")
+                pil_image = pil_image.convert('L')
 
             # 3. Time the software convolution
             start_time = time.perf_counter()
