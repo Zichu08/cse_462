@@ -1,35 +1,40 @@
+{% comment %} myapp/templates/myapp/conv2d_reference.html {% endcomment %}
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>Conv2D Software Reference</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    </head>
-    <body class="p-4">
-        <div class="container">
-            <h1>Software Conv2D Reference</h1>
-            <hr>
+<head>
+    <title>Conv2D Software Reference</title>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="p-4">
+<div class="container">
+    <h1>Software Conv2D Reference</h1>
+    <hr>
 
-            <form method="POST" enctype="multipart/form-data" class="mb-4">
-                {% csrf_token %}
-                <div class="mb-3">
-                    {{ form.image.label_tag }}<br>
-                    {{ form.image }}
-                </div>
-
-                <div class="mb-3">
-                    {{ form.kernel_type.label_tag }}<br>
-                    {{ form.kernel_type }}
-                </div>
-
-                <button type="submit" class="btn btn-primary">Convolve in Software</button>
-            </form>
-
-            {% if encoded_result %}
-                <h3>Result</h3>
-                <p>Computation Time: {{ elapsed_time }}</p>
-                <img src="data:image/png;base64,{{ encoded_result }}" alt="Convolved Image" />
-            {% endif %}
+    <!-- Form for uploading image and choosing kernel -->
+    <form method="POST" enctype="multipart/form-data" class="mb-4">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.image.label_tag }}<br>
+            {{ form.image }}
         </div>
-    </body>
+
+        <div class="mb-3">
+            {{ form.kernel_type.label_tag }}<br>
+            {{ form.kernel_type }}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Convolve in Software</button>
+    </form>
+
+    <!-- If there's a convolved image result, display it -->
+    {% if encoded_result %}
+        <h3>Result</h3>
+        <p>Computation Time: {{ elapsed_time }}</p>
+        <img src="data:image/png;base64,{{ encoded_result }}" alt="Convolved Image" />
+    {% endif %}
+</div>
+</body>
 </html>
+
