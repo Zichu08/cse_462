@@ -169,3 +169,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Ignore Python bytecode and cache
+__pycache__/
+*.py[cod]
