@@ -58,8 +58,15 @@ class Conv2DReferenceView(View):
             # 2a. If the user selected an edge-detect kernel, 
             #     convert the image to grayscale automatically.
             if 'edge_detect' in kernel_type.lower():
-                print("edge_detect")
                 pil_image = pil_image.convert('L')
+            
+            # --- A) Convert the *original* PIL image to base64 for display ---
+            # (We'll encode it *before* any modifications, so the user sees the original uploaded image.)
+            original_buffer = BytesIO()
+            # Save as PNG (or the original format, but PNG is usually safe)
+            pil_image.save(original_buffer, format="PNG")
+            original_bytes = original_buffer.getvalue()
+            original_image_b64 = base64.b64encode(original_bytes).decode('utf-8')
             
             # Convert to NumPy
             image_np = np.array(pil_image)
@@ -82,13 +89,14 @@ class Conv2DReferenceView(View):
                 result_image = Image.fromarray(convolved)
 
             # 5. Encode the image in base64 to display inline
-            buffer = BytesIO()
-            result_image.save(buffer, format="PNG")
-            image_bytes = buffer.getvalue()
-            encoded_result = base64.b64encode(image_bytes).decode('utf-8')
+            result_buffer = BytesIO()
+            result_image.save(result_buffer, format="PNG")
+            result_bytes = result_buffer.getvalue()
+            encoded_result = base64.b64encode(result_bytes).decode('utf-8')
 
             return render(request, self.template_name, {
                 "form": form,
+                "original_image": original_image_b64,
                 "encoded_result": encoded_result,
                 "elapsed_time": f"{elapsed_time:.4f} seconds"
             })

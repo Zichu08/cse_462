@@ -28,13 +28,32 @@
         <button type="submit" class="btn btn-primary">Convolve in Software</button>
     </form>
 
-    <!-- If there's a convolved image result, display it -->
-    {% if encoded_result %}
-        <h3>Result</h3>
-        <p>Computation Time: {{ elapsed_time }}</p>
-        <img src="data:image/png;base64,{{ encoded_result }}" alt="Convolved Image" />
+    <!-- If there's an original image or convolved image, display them -->
+    {% if original_image or encoded_result %}
+        <h3>Results</h3>
+        <div class="row">
+            <!-- Original image -->
+            {% if original_image %}
+                <div class="col-md-6 mb-3">
+                    <h4>Original Image</h4>
+                    <img class="img-fluid border" 
+                         src="data:image/png;base64,{{ original_image }}" 
+                         alt="Original Image" />
+                </div>
+            {% endif %}
+
+            <!-- Convolved image -->
+            {% if encoded_result %}
+                <div class="col-md-6 mb-3">
+                    <h4>Convolved Image</h4>
+                    <img class="img-fluid border" 
+                         src="data:image/png;base64,{{ encoded_result }}" 
+                         alt="Convolved Image" />
+                    <p>Computation Time: {{ elapsed_time }}</p>
+                </div>
+            {% endif %}
+        </div>
     {% endif %}
 </div>
 </body>
 </html>
-
