@@ -171,5 +171,4 @@ cython_debug/
 .pypirc
 
 # Ignore Python bytecode and cache
-__pycache__/
-*.py[cod]
+mysite/__pycache__/
