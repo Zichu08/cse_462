@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import AdditionSerializer, ImageUploadSerializer
-from .hardware import scalar_add, conv2d_driver
+from .hardware import scalar_add#, conv2d_driver
 from rest_framework.parsers import MultiPartParser, FormParser
 import numpy as np
 import time
