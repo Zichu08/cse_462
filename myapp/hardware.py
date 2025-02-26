@@ -71,6 +71,5 @@ adder_overlay = Overlay('/home/xilinx/pynq/overlays/adder/adder.bit')
 scalar_add = adder_overlay.scalar_add
 
 # Load the overlay for the convolution accelerator.
-conv2d_overlay = Overlay('/home/xilinx/pynq/overlays/conv2d/conv2d.bit')
-# Similarly, get the instance of your conv2d IP.
-conv2d_driver = conv2d_overlay.conv2d_driver
+# conv2d_overlay = Overlay('/home/xilinx/pynq/overlays/conv2d/conv2d.bit')
+# conv2d_driver = conv2d_overlay.conv2d_driver
