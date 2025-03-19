@@ -172,3 +172,4 @@ cython_debug/
 
 # Ignore Python bytecode and cache
 mysite/__pycache__/
+.DS_Store
