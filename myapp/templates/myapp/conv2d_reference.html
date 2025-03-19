@@ -1,4 +1,4 @@
-{% comment %} myapp/templates/myapp/conv2d_reference.html {% endcomment %}
+<!-- myapp/templates/myapp/conv2d_reference.html -->
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -9,7 +9,7 @@
 </head>
 <body class="p-4">
 <div class="container">
-    <h1>Software Conv2D Reference</h1>
+    <h1>Software Conv2D Reference (Plus Hardware Grayscale)</h1>
     <hr>
 
     <!-- Form for uploading image and choosing kernel -->
@@ -28,28 +28,38 @@
         <button type="submit" class="btn btn-primary">Convolve in Software</button>
     </form>
 
-    <!-- If there's an original image or convolved image, display them -->
-    {% if original_image or encoded_result %}
+    {% if original_image or encoded_result or hw_gray_image %}
         <h3>Results</h3>
         <div class="row">
+
             <!-- Original image -->
             {% if original_image %}
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                     <h4>Original Image</h4>
-                    <img class="img-fluid border" 
-                         src="data:image/png;base64,{{ original_image }}" 
+                    <img class="img-fluid border"
+                         src="data:image/png;base64,{{ original_image }}"
                          alt="Original Image" />
                 </div>
             {% endif %}
 
             <!-- Convolved image -->
             {% if encoded_result %}
-                <div class="col-md-6 mb-3">
-                    <h4>Convolved Image</h4>
-                    <img class="img-fluid border" 
-                         src="data:image/png;base64,{{ encoded_result }}" 
+                <div class="col-md-4 mb-3">
+                    <h4>Software Convolution</h4>
+                    <img class="img-fluid border"
+                         src="data:image/png;base64,{{ encoded_result }}"
                          alt="Convolved Image" />
                     <p>Computation Time: {{ elapsed_time }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Hardware grayscale image -->
+            {% if hw_gray_image %}
+                <div class="col-md-4 mb-3">
+                    <h4>Hardware Grayscale</h4>
+                    <img class="img-fluid border"
+                         src="data:image/png;base64,{{ hw_gray_image }}"
+                         alt="Hardware Grayscale" />
                 </div>
             {% endif %}
         </div>

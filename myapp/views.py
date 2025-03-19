@@ -14,6 +14,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 import numpy as np
 import time
 import base64
+from .hardware import hardware_grayscale
 
 
 # Create your views here.
@@ -30,51 +31,6 @@ class AdditionAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# New convolution API for hardware part computation (not complete yet)
-# class ConvolutionAPIView(APIView):
-#     parser_classes = (MultiPartParser, FormParser)
-
-#     def post(self, request):
-#         serializer = ImageUploadSerializer(data=request.data)
-#         if serializer.is_valid():
-#             # Retrieve the uploaded image.
-#             image_file = serializer.validated_data['image']
-
-#             # Open the image with Pillow.
-#             image = Image.open(image_file)
-
-#             # Convert to grayscale if your accelerator expects a 2D (single channel) image.
-#             image = image.convert('L')
-
-#             # Convert image to a NumPy array.
-#             image_np = np.array(image)
-
-#             # Define a convolution kernel.
-#             # Here we use a simple edge detection kernel.
-#             edge_detect_kernel = np.array([
-#                 [-1, -1, -1],
-#                 [-1,  8, -1],
-#                 [-1, -1, -1]
-#             ], dtype=np.int8)
-
-#             # Pass the image and kernel to the hardware accelerator.
-#             result_np = conv2d_driver.conv2d(image_np, edge_detect_kernel)
-
-#             # Convert the resulting NumPy array back into an image.
-#             result_image = Image.fromarray(result_np)
-
-#             # Save the result image to a bytes buffer.
-#             buffer = BytesIO()
-#             result_image.save(buffer, format="PNG")
-#             image_bytes = buffer.getvalue()
-
-#             # Encode the image bytes as a Base64 string.
-#             encoded_image = base64.b64encode(image_bytes).decode('utf-8')
-
-#             return Response({"result_image": encoded_image}, status=status.HTTP_200_OK)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
 class Conv2DReferenceView(View):
     template_name = "myapp/conv2d_reference.html"
 
@@ -85,61 +41,56 @@ class Conv2DReferenceView(View):
     def post(self, request):
         form = SoftwareConv2DForm(request.POST, request.FILES)
         if form.is_valid():
-            # 1. Retrieve the uploaded image (DO NOT convert to L if you want color)
+            # 1. Upload
             image_file = form.cleaned_data['image']
-            pil_image = Image.open(image_file)  
-            # If you want to handle both grayscale or color automatically,
-            # you could do:
-            # pil_image = pil_image.convert("RGB")
+            pil_image = Image.open(image_file)
 
-            # 2. Retrieve the selected kernel type
+            # 2. Kernel selection for software reference
             kernel_type = form.cleaned_data['kernel_type']
-            # Get the corresponding kernel
             kernel = get_kernel_by_type(kernel_type)
-            
-            # 2a. If the user selected an edge-detect kernel, 
-            #     convert the image to grayscale automatically.
-            if 'edge_detect' in kernel_type.lower():
-                pil_image = pil_image.convert('L')
-            
-            # --- A) Convert the *original* PIL image to base64 for display ---
-            # (We'll encode it *before* any modifications, so the user sees the original uploaded image.)
-            original_buffer = BytesIO()
-            # Save as PNG (or the original format, but PNG is usually safe)
-            pil_image.save(original_buffer, format="PNG")
-            original_bytes = original_buffer.getvalue()
-            original_image_b64 = base64.b64encode(original_bytes).decode('utf-8')
-            
-            # Convert to NumPy
-            image_np = np.array(pil_image)
-            # shape could be (H, W) for grayscale PNG or (H, W, 3/4) for color
 
-            # 3. Time the software convolution
+            # 3. Convert to NumPy for software convolution
+            image_np = np.array(pil_image)
+
+            # 4. Time the software convolution
             start_time = time.perf_counter()
             convolved = flexible_conv2d(image_np, kernel, padding='reflect')
             end_time = time.perf_counter()
             elapsed_time = end_time - start_time
 
-            # 4. Convert the result back to an image for display
-            # If result is 2D, we must specify mode='L' in PIL
-            # If result has shape (H,W,C)=3 channels, we specify mode='RGB'
+            # 5. Convert the convolved array back to a PIL image
             if convolved.ndim == 2:
-                result_image = Image.fromarray(convolved, mode='L')
+                convolved_image = Image.fromarray(convolved, mode='L')
             else:
-                # Usually the result shape is (H,W,3) for RGB
-                # If there's an alpha channel, handle that separately
-                result_image = Image.fromarray(convolved)
+                convolved_image = Image.fromarray(convolved)
 
-            # 5. Encode the image in base64 to display inline
-            result_buffer = BytesIO()
-            result_image.save(result_buffer, format="PNG")
-            result_bytes = result_buffer.getvalue()
-            encoded_result = base64.b64encode(result_bytes).decode('utf-8')
+            # 6. ALWAYS call hardware grayscale on the original image
+            #    Ensure it's RGB so hardware_grayscale gets (H,W,3)
+            original_rgb = pil_image.convert("RGB")
+            hw_in_np = np.array(original_rgb)
+            hw_out_np = hardware_grayscale(hw_in_np)
+            hw_gray_image = Image.fromarray(hw_out_np)  # shape(H,W,3) with R=G=B
 
+            # 7. Convert original and convolved images to base64
+            #    (We also convert hardware grayscale to base64.)
+            original_buffer = BytesIO()
+            pil_image.save(original_buffer, format="PNG")
+            original_base64 = base64.b64encode(original_buffer.getvalue()).decode('utf-8')
+
+            convolved_buffer = BytesIO()
+            convolved_image.save(convolved_buffer, format="PNG")
+            convolved_base64 = base64.b64encode(convolved_buffer.getvalue()).decode('utf-8')
+
+            hw_gray_buffer = BytesIO()
+            hw_gray_image.save(hw_gray_buffer, format="PNG")
+            hw_gray_base64 = base64.b64encode(hw_gray_buffer.getvalue()).decode('utf-8')
+
+            # 8. Render
             return render(request, self.template_name, {
                 "form": form,
-                "original_image": original_image_b64,
-                "encoded_result": encoded_result,
+                "original_image": original_base64,
+                "encoded_result": convolved_base64,
+                "hw_gray_image": hw_gray_base64,
                 "elapsed_time": f"{elapsed_time:.4f} seconds"
             })
         else:
