@@ -21,6 +21,5 @@ from myapp.views import AdditionAPIView, Conv2DReferenceView
 
 urlpatterns = [
     path('', Conv2DReferenceView.as_view(), name='conv2d_reference'),
-    # path('convolve/', ConvolutionAPIView.as_view(), name='convolution'),
-    path('add/', AdditionAPIView.as_view(), name='addition'),
+    # path('add/', AdditionAPIView.as_view(), name='addition'),
 ]

@@ -18,17 +18,17 @@ from .hardware import hardware_grayscale
 
 
 # Create your views here.
-# Original addition API.
-class AdditionAPIView(APIView):
-    def post(self, request):
-        serializer = AdditionSerializer(data=request.data)
-        if serializer.is_valid():
-            num1 = serializer.validated_data['num1']
-            num2 = serializer.validated_data['num2']
-            # Use the hardware accelerator to perform addition.
-            result = scalar_add.add(num1, num2)
-            return Response({"sum": result}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# # Original addition API.
+# class AdditionAPIView(APIView):
+#     def post(self, request):
+#         serializer = AdditionSerializer(data=request.data)
+#         if serializer.is_valid():
+#             num1 = serializer.validated_data['num1']
+#             num2 = serializer.validated_data['num2']
+#             # Use the hardware accelerator to perform addition.
+#             result = scalar_add.add(num1, num2)
+#             return Response({"sum": result}, status=status.HTTP_200_OK)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class Conv2DReferenceView(View):
