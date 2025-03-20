@@ -17,9 +17,8 @@ Including another URLconf
 """
 
 from django.urls import path
-from myapp.views import AdditionAPIView, Conv2DReferenceView
+from myapp.views import Conv2DReferenceView
 
 urlpatterns = [
     path('', Conv2DReferenceView.as_view(), name='conv2d_reference'),
-    # path('add/', AdditionAPIView.as_view(), name='addition'),
 ]

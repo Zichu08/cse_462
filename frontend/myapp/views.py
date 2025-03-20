@@ -8,8 +8,7 @@ from django.views import View
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import AdditionSerializer, ImageUploadSerializer
-from .hardware import scalar_add#, conv2d_driver
+from .serializers import ImageUploadSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 import numpy as np
 import time
@@ -18,19 +17,6 @@ from .hardware import hardware_grayscale
 
 
 # Create your views here.
-# # Original addition API.
-# class AdditionAPIView(APIView):
-#     def post(self, request):
-#         serializer = AdditionSerializer(data=request.data)
-#         if serializer.is_valid():
-#             num1 = serializer.validated_data['num1']
-#             num2 = serializer.validated_data['num2']
-#             # Use the hardware accelerator to perform addition.
-#             result = scalar_add.add(num1, num2)
-#             return Response({"sum": result}, status=status.HTTP_200_OK)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
 class Conv2DReferenceView(View):
     template_name = "myapp/conv2d_reference.html"
 
