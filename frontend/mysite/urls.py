@@ -17,7 +17,7 @@ Including another URLconf
 """
 
 from django.urls import path
-from myapp.views import Conv2DReferenceView
+from myapp.views import Conv2DReferenceView, HardwareGrayscaleAPIView
 
 urlpatterns = [
     path('', Conv2DReferenceView.as_view(), name='conv2d_reference'),
