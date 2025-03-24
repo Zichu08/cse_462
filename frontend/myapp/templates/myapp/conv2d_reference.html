@@ -9,11 +9,11 @@
 </head>
 <body class="p-4">
 <div class="container">
-    <h1>Software Conv2D Reference (Plus Hardware Grayscale)</h1>
+    <h1>Conv2D Software Reference</h1>
     <hr>
 
     <!-- Form for uploading image and choosing kernel -->
-    <form method="POST" enctype="multipart/form-data" class="mb-4">
+    <form id="conv2dForm" method="POST" enctype="multipart/form-data" class="mb-4">
         {% csrf_token %}
         <div class="mb-3">
             {{ form.image.label_tag }}<br>
@@ -28,7 +28,8 @@
         <button type="submit" class="btn btn-primary">Convolve in Software</button>
     </form>
 
-    {% if original_image or encoded_result or hw_gray_image %}
+    <!-- If there's an original or convolved image, display them -->
+    {% if original_image or encoded_result %}
         <h3>Results</h3>
         <div class="row">
 
@@ -42,7 +43,7 @@
                 </div>
             {% endif %}
 
-            <!-- Convolved image -->
+            <!-- Software Convolved -->
             {% if encoded_result %}
                 <div class="col-md-4 mb-3">
                     <h4>Software Convolution</h4>
@@ -53,17 +54,88 @@
                 </div>
             {% endif %}
 
-            <!-- Hardware grayscale image -->
-            {% if hw_gray_image %}
-                <div class="col-md-4 mb-3">
-                    <h4>Hardware Grayscale</h4>
-                    <img class="img-fluid border"
-                         src="data:image/png;base64,{{ hw_gray_image }}"
-                         alt="Hardware Grayscale" />
-                </div>
-            {% endif %}
+            <!-- Hardware Grayscale (loaded via AJAX) -->
+            <div class="col-md-4 mb-3" id="hwGrayContainer" style="display:none;">
+                <h4>Hardware Grayscale</h4>
+                <img id="hwGrayImage" class="img-fluid border" src="" alt="Hardware Grayscale" />
+            </div>
         </div>
     {% endif %}
+
+    <!-- Loading indicator / spinner for hardware grayscale -->
+    <div id="hwStatusContainer" class="mt-4" style="display:none;">
+        <span id="hwStatusText">Loading hardware grayscale...</span>
+    </div>
+
 </div>
+
+{% if original_image %}
+<!-- We'll only run the following script if we actually have an uploaded image -->
+<script>
+/**
+ * A helper function to convert a base64 string (PNG) to a Blob.
+ */
+function b64toBlob(b64Data, contentType='image/png', sliceSize=512) {
+    const byteCharacters = atob(b64Data);
+    const byteArrays = [];
+
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+
+        byteArrays.push(byteArray);
+    }
+
+    return new Blob(byteArrays, {type: contentType});
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Grab the base64 from the server (in the Django context)
+    const originalB64 = "{{ original_image }}";
+
+    if (originalB64) {
+        // Show the “Loading hardware grayscale” indicator
+        document.getElementById("hwStatusContainer").style.display = "block";
+
+        // Convert base64 => Blob => File => FormData => POST to /api/hw_grayscale/
+        const blob = b64toBlob(originalB64, 'image/png');
+        const file = new File([blob], "uploaded.png", { type: 'image/png' });
+        
+        let formData = new FormData();
+        formData.append('image', file);
+
+        fetch("{% url 'hw_grayscale_api' %}", {
+            method: 'POST',
+            body: formData
+        })
+        .then(resp => resp.json())
+        .then(data => {
+            if (data.hw_gray_image) {
+                // Hide the spinner
+                document.getElementById("hwStatusContainer").style.display = "none";
+                // Show the hardware grayscale container
+                document.getElementById("hwGrayContainer").style.display = "block";
+
+                // Update the <img> src with the returned base64
+                let hwImg = document.getElementById("hwGrayImage");
+                hwImg.src = "data:image/png;base64," + data.hw_gray_image;
+            } else {
+                // If there's an error or no hw_gray_image, show error text
+                document.getElementById("hwStatusText").innerText = "Failed to get hardware grayscale image.";
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById("hwStatusText").innerText = "Error calling hardware grayscale API.";
+        });
+    }
+});
+</script>
+{% endif %}
 </body>
 </html>

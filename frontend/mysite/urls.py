@@ -21,4 +21,5 @@ from myapp.views import Conv2DReferenceView
 
 urlpatterns = [
     path('', Conv2DReferenceView.as_view(), name='conv2d_reference'),
+    path('api/hw_grayscale/', HardwareGrayscaleAPIView.as_view(), name='hw_grayscale_api'),
 ]
