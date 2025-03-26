@@ -3,13 +3,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Conv2D Software Reference</title>
+    <title>Conv2D Reference</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="{% static 'myapp/css/conv2d_reference.css' %}">
 </head>
 <body class="p-4">
+
 <div class="container">
-    <h1>Conv2D Software Reference</h1>
+    <h1>Conv2D Software/Hardware Reference</h1>
     <hr>
 
     <!-- Form for uploading image and choosing kernel -->
@@ -25,55 +26,58 @@
             {{ form.kernel_type }}
         </div>
 
-        <button type="submit" class="btn btn-primary">Convolve in Software</button>
+        <button type="submit" class="btn btn-primary">Upload</button>
     </form>
 
-    <!-- If there's an original or convolved image, display them -->
-    {% if original_image or encoded_result %}
-        <h3>Results</h3>
-        <div class="row">
-
-            <!-- Original image -->
-            {% if original_image %}
-                <div class="col-md-4 mb-3">
-                    <h4>Original Image</h4>
-                    <img class="img-fluid border"
-                         src="data:image/png;base64,{{ original_image }}"
-                         alt="Original Image" />
-                </div>
-            {% endif %}
-
-            <!-- Software Convolved -->
-            {% if encoded_result %}
-                <div class="col-md-4 mb-3">
-                    <h4>Software Convolution</h4>
-                    <img class="img-fluid border"
-                         src="data:image/png;base64,{{ encoded_result }}"
-                         alt="Convolved Image" />
-                    <p>Computation Time: {{ elapsed_time }}</p>
-                </div>
-            {% endif %}
-
-            <!-- Hardware Grayscale (loaded via AJAX) -->
-            <div class="col-md-4 mb-3" id="hwGrayContainer" style="display:none;">
-                <h4>Hardware Grayscale</h4>
-                <img id="hwGrayImage" class="img-fluid border" src="" alt="Hardware Grayscale" />
-            </div>
-        </div>
+    <!-- After POST, we embed the base64 and kernel choice in the template for JS -->
+    {% if original_image %}
+    <input type="hidden" id="originalImageB64" value="{{ original_image }}">
+    <input type="hidden" id="selectedKernel" value="{{ selected_kernel }}">
     {% endif %}
 
-    <!-- Loading indicator / spinner for hardware grayscale -->
-    <div id="hwStatusContainer" class="mt-4" style="display:none;">
-        <span id="hwStatusText">Loading hardware grayscale...</span>
+    <!-- Results Section -->
+    <div id="resultsContainer" style="display:none;">
+        <h3>Results</h3>
+        <div class="row">
+            <!-- Original image -->
+            <div class="col-md-3 mb-3">
+                <h5>Original Image</h5>
+                <img id="originalImage" class="img-fluid border" alt="Original Image"/>
+            </div>
+
+            <!-- Software Grayscale -->
+            <div class="col-md-3 mb-3" id="swGrayContainer" style="display:none;">
+                <h5>Software Grayscale <span id="swGrayTime" class="text-muted fs-6"></span></h5>
+                <img id="swGrayImage" class="img-fluid border" alt="Software Gray"/>
+            </div>
+
+            <!-- Software Convolution -->
+            <div class="col-md-3 mb-3" id="swConvContainer" style="display:none;">
+                <h5>Software Convolution <span id="swConvTime" class="text-muted fs-6"></span></h5>
+                <img id="swConvImage" class="img-fluid border" alt="Software Convolution"/>
+            </div>
+
+            <!-- Hardware Grayscale -->
+            <div class="col-md-3 mb-3" id="hwGrayContainer" style="display:none;">
+                <h5>Hardware Grayscale <span id="hwGrayTime" class="text-muted fs-6"></span></h5>
+                <img id="hwGrayImage" class="img-fluid border" alt="Hardware Grayscale"/>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading indicators -->
+    <div class="mt-4" id="swStatusContainer" style="display:none;">
+        <span id="swStatusText">Processing software grayscale & convolution...</span>
+    </div>
+    <div class="mt-4" id="hwStatusContainer" style="display:none;">
+        <span id="hwStatusText">Processing hardware grayscale...</span>
     </div>
 
 </div>
 
-{% if original_image %}
-<!-- We'll only run the following script if we actually have an uploaded image -->
 <script>
 /**
- * A helper function to convert a base64 string (PNG) to a Blob.
+ * Helper function to convert a base64 string (PNG) to a Blob.
  */
 function b64toBlob(b64Data, contentType='image/png', sliceSize=512) {
     const byteCharacters = atob(b64Data);
@@ -81,13 +85,11 @@ function b64toBlob(b64Data, contentType='image/png', sliceSize=512) {
 
     for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
         const slice = byteCharacters.slice(offset, offset + sliceSize);
-
         const byteNumbers = new Array(slice.length);
         for (let i = 0; i < slice.length; i++) {
             byteNumbers[i] = slice.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
-
         byteArrays.push(byteArray);
     }
 
@@ -95,37 +97,91 @@ function b64toBlob(b64Data, contentType='image/png', sliceSize=512) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
-    // Grab the base64 from the server (in the Django context)
-    const originalB64 = "{{ original_image }}";
+    // 1) If we have an original image base64 from the server,
+    //    show it in the "Original Image" <img> tag, then call the REST APIs.
+    const originalImageB64 = document.getElementById("originalImageB64")?.value;
+    const selectedKernel = document.getElementById("selectedKernel")?.value;
 
-    if (originalB64) {
-        // Show the “Loading hardware grayscale” indicator
-        document.getElementById("hwStatusContainer").style.display = "block";
+    if (originalImageB64) {
+        // Show results container
+        document.getElementById("resultsContainer").style.display = "block";
 
-        // Convert base64 => Blob => File => FormData => POST to /api/hw_grayscale/
-        const blob = b64toBlob(originalB64, 'image/png');
+        // Display the original image
+        const originalImgElem = document.getElementById("originalImage");
+        originalImgElem.src = "data:image/png;base64," + originalImageB64;
+
+        // Convert base64 => Blob => File => FormData => for posting
+        const blob = b64toBlob(originalImageB64, 'image/png');
         const file = new File([blob], "uploaded.png", { type: 'image/png' });
-        
-        let formData = new FormData();
-        formData.append('image', file);
 
-        fetch("{% url 'hw_grayscale_api' %}", {
+        // ---------------------------------------------------------------------
+        // 2) SOFTWARE PROCESS
+        // ---------------------------------------------------------------------
+        // Show the spinner
+        document.getElementById("swStatusContainer").style.display = "block";
+
+        let swFormData = new FormData();
+        swFormData.append('image', file);
+        swFormData.append('kernel_type', selectedKernel);
+
+        fetch("{% url 'software_process_api' %}", {
             method: 'POST',
-            body: formData
+            body: swFormData
         })
         .then(resp => resp.json())
         .then(data => {
+            document.getElementById("swStatusContainer").style.display = "none";
+
+            if (data.software_gray_image && data.software_conv_image) {
+                // Show the software grayscale
+                const swGrayImage = document.getElementById("swGrayImage");
+                swGrayImage.src = "data:image/png;base64," + data.software_gray_image;
+                document.getElementById("swGrayTime").innerText = `(${data.software_gray_time})`;
+                document.getElementById("swGrayContainer").style.display = "block";
+
+                // Show the software convolved image
+                const swConvImage = document.getElementById("swConvImage");
+                swConvImage.src = "data:image/png;base64," + data.software_conv_image;
+                document.getElementById("swConvTime").innerText = `(${data.software_conv_time})`;
+                document.getElementById("swConvContainer").style.display = "block";
+            } else {
+                document.getElementById("swStatusText").innerText = "Failed to get software results.";
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById("swStatusText").innerText = "Error calling software processing API.";
+        });
+
+        // ---------------------------------------------------------------------
+        // 3) HARDWARE GRAYSCALE
+        // ---------------------------------------------------------------------
+        // Show the hardware spinner
+        document.getElementById("hwStatusContainer").style.display = "block";
+
+        let hwFormData = new FormData();
+        hwFormData.append('image', file);
+
+        fetch("{% url 'hw_grayscale_api' %}", {
+            method: 'POST',
+            body: hwFormData
+        })
+        .then(resp => resp.json())
+        .then(data => {
+            document.getElementById("hwStatusContainer").style.display = "none";
+
             if (data.hw_gray_image) {
-                // Hide the spinner
-                document.getElementById("hwStatusContainer").style.display = "none";
                 // Show the hardware grayscale container
-                document.getElementById("hwGrayContainer").style.display = "block";
+                const hwGrayContainer = document.getElementById("hwGrayContainer");
+                hwGrayContainer.style.display = "block";
 
                 // Update the <img> src with the returned base64
-                let hwImg = document.getElementById("hwGrayImage");
-                hwImg.src = "data:image/png;base64," + data.hw_gray_image;
+                const hwGrayImage = document.getElementById("hwGrayImage");
+                hwGrayImage.src = "data:image/png;base64," + data.hw_gray_image;
+
+                const hwGrayTime = document.getElementById("hwGrayTime");
+                hwGrayTime.innerText = `(${data.hw_gray_time})`;
             } else {
-                // If there's an error or no hw_gray_image, show error text
                 document.getElementById("hwStatusText").innerText = "Failed to get hardware grayscale image.";
             }
         })
@@ -136,6 +192,6 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 </script>
-{% endif %}
+
 </body>
 </html>
