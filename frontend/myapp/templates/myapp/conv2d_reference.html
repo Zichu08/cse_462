@@ -26,6 +26,14 @@
             {{ form.kernel_type }}
         </div>
 
+        <!-- New checkbox: if checked, we'll call SciPy for software convolution -->
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" value="on" id="useScipyCheckbox" name="use_scipy"/>
+            <label class="form-check-label" for="useScipyCheckbox">
+                Use SciPy built-in Convolution
+            </label>
+        </div>
+
         <button type="submit" class="btn btn-primary">Upload</button>
     </form>
 
@@ -33,6 +41,7 @@
     {% if original_image %}
     <input type="hidden" id="originalImageB64" value="{{ original_image }}">
     <input type="hidden" id="selectedKernel" value="{{ selected_kernel }}">
+    <input type="hidden" id="useScipyFlag" value="{{ use_scipy }}">
     {% endif %}
 
     <!-- Results Section -->
@@ -101,6 +110,7 @@ document.addEventListener("DOMContentLoaded", function() {
     //    show it in the "Original Image" <img> tag, then call the REST APIs.
     const originalImageB64 = document.getElementById("originalImageB64")?.value;
     const selectedKernel = document.getElementById("selectedKernel")?.value;
+    const useScipyFlag = document.getElementById("useScipyFlag")?.value;  // 'on' or ''
 
     if (originalImageB64) {
         // Show results container
@@ -123,6 +133,11 @@ document.addEventListener("DOMContentLoaded", function() {
         let swFormData = new FormData();
         swFormData.append('image', file);
         swFormData.append('kernel_type', selectedKernel);
+
+        // If the user checked "Use SciPy", we pass 'use_scipy=on' to the backend
+        if (useScipyFlag === 'on') {
+            swFormData.append('use_scipy', 'on');
+        }
 
         fetch("{% url 'software_process_api' %}", {
             method: 'POST',

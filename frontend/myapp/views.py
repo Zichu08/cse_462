@@ -1,7 +1,7 @@
 # myapp/views.py
 from django.shortcuts import render
 from .forms import SoftwareConv2DForm
-from .utils import flexible_conv2d, get_kernel_by_type, software_grayscale
+from .utils import flexible_conv2d, get_kernel_by_type, software_grayscale, fast_conv_scipy
 from io import BytesIO
 from PIL import Image
 from django.views import View
@@ -17,6 +17,7 @@ import time
 import base64
 
 from .hardware import hardware_grayscale
+
 
 ##############################################################################
 # Main Page View
@@ -41,6 +42,7 @@ class Conv2DReferenceView(View):
         processes are done via their respective REST APIs.
         """
         form = SoftwareConv2DForm(request.POST, request.FILES)
+        use_scipy = request.POST.get('use_scipy', '')  # 'on' if checked, '' if unchecked
         if form.is_valid():
             image_file = form.cleaned_data['image']
             pil_image = Image.open(image_file)
@@ -58,7 +60,8 @@ class Conv2DReferenceView(View):
             return render(request, self.template_name, {
                 "form": form,
                 "original_image": original_base64,
-                "selected_kernel": kernel_type
+                "selected_kernel": kernel_type,
+                "use_scipy": use_scipy
             })
         else:
             return render(request, self.template_name, {"form": form})
@@ -72,7 +75,7 @@ class SoftwareProcessAPIView(APIView):
     """
     Receives an image + kernel_type, then performs:
       1) Software grayscale
-      2) Software convolution
+      2) Software convolution (either the custom flexible_conv2d or SciPy).
     and returns:
       - software_gray_image (base64)
       - software_gray_time (seconds)
@@ -86,8 +89,12 @@ class SoftwareProcessAPIView(APIView):
         if serializer.is_valid():
             # Extract uploaded image
             image_file = serializer.validated_data['image']
-            # Kernel type might come from the validated_data or from request POST
+
+            # Kernel type might come from the validated_data or from request.POST
             kernel_type = request.POST.get('kernel_type', 'edge_detect_3x3')
+
+            # Check if user wants SciPy approach
+            use_scipy = request.POST.get('use_scipy', '')  # 'on' or ''
 
             # Convert to a PIL Image (ensure RGB)
             pil_image = Image.open(image_file).convert("RGB")
@@ -106,10 +113,15 @@ class SoftwareProcessAPIView(APIView):
             sw_gray_b64 = base64.b64encode(gray_buffer.getvalue()).decode('utf-8')
 
             # 2) Software convolution
-            #    Get the kernel from our utility function
             kernel = get_kernel_by_type(kernel_type)
+
             start_conv = time.perf_counter()
-            conv_np = flexible_conv2d(image_np, kernel, padding='reflect')
+            if use_scipy == 'on':
+                # Use SciPy's convolve2d for each channel
+                conv_np = fast_conv_scipy(image_np, kernel, padding='reflect')
+            else:
+                # Use the existing pure-Python function
+                conv_np = flexible_conv2d(image_np, kernel, padding='reflect')
             end_conv = time.perf_counter()
             conv_time = end_conv - start_conv
 

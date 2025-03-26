@@ -171,3 +171,61 @@ def software_grayscale(img_array):
     else:
         # If it's already single-channel, just return it
         return img_array
+
+
+def fast_conv_scipy(image_array, kernel, padding='reflect'):
+    """
+    Perform 2D convolution using SciPy's convolve2d for each channel.
+    This function is used only if 'use_scipy' is checked.
+
+    Parameters
+    ----------
+    image_array : np.ndarray
+        The input image, shape (H, W) or (H, W, C). Typically uint8 or float.
+    kernel : np.ndarray
+        The 2D kernel, shape (kH, kW).
+    padding : str
+        One of 'reflect', 'constant', 'edge' (like your function). We’ll map these
+        to boundary modes in SciPy: 'symm' (similar to reflect), 'fill', or 'nearest'.
+
+    Returns
+    -------
+    np.ndarray
+        Convolved image, same shape (H, W) or (H, W, C).
+    """
+    # Map the "reflect", "constant", "edge" to SciPy's convolve2d boundary options.
+    # SciPy's 'symm' is akin to reflect. 'fill' uses zeros (constant). 'nearest' is for edge.
+    boundary_map = {
+        'reflect': 'symm',
+        'constant': 'fill',
+        'edge': 'nearest'
+    }
+    boundary_mode = boundary_map.get(padding, 'symm')  # default to 'symm'
+
+    # If single channel, just do one convolve2d
+    if image_array.ndim == 2:
+        # shape: (H, W)
+        conv_result = convolve2d(image_array, kernel, mode='same', boundary=boundary_mode)
+        return post_process_output(conv_result, image_array.dtype)
+
+    # If color image, do channel by channel
+    H, W, C = image_array.shape
+    out = np.zeros((H, W, C), dtype=np.float32)  # float intermediate
+
+    for c in range(C):
+        # convolve2d each channel
+        channel_conv = convolve2d(image_array[..., c], kernel, mode='same', boundary=boundary_mode)
+        out[..., c] = channel_conv
+
+    # Convert back to original dtype if needed
+    return post_process_output(out, image_array.dtype)
+
+
+def post_process_output(conv_result, orig_dtype):
+    """
+    Utility to clamp to [0..255] if the original data was uint8,
+    and convert back to uint8. Otherwise, keep it as float.
+    """
+    if np.issubdtype(orig_dtype, np.integer):
+        conv_result = np.clip(conv_result, 0, 255).astype(np.uint8)
+    return conv_result
