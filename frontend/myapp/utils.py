@@ -1,5 +1,6 @@
 # myapp/utils.py
 import numpy as np
+from scipy.signal import convolve2d
 
 def flexible_conv2d(image_array, kernel, padding='reflect'):
     """
