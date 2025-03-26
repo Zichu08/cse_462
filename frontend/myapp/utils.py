@@ -1,11 +1,11 @@
 # myapp/utils.py
 import numpy as np
+from scipy.signal import convolve2d
 
 def flexible_conv2d(image_array, kernel, padding='reflect'):
     """
     Perform a 2D convolution on a grayscale or color (multi-channel) image using a generic kernel.
-    This function uses pure Python + NumPy, without external libraries like SciPy/OpenCV,
-    so it can serve as a reference for hardware or custom implementations.
+    This function uses pure Python + NumPy (no SciPy/OpenCV) for educational clarity.
 
     Parameters
     ----------
@@ -13,83 +13,36 @@ def flexible_conv2d(image_array, kernel, padding='reflect'):
         The input image as a NumPy array.
           - Shape (H, W) for a single-channel (grayscale).
           - Shape (H, W, C) for color images, where C is the number of channels (e.g., 3 for RGB).
-        Typically, this would be np.uint8 in [0..255] or a float array in [0..1].
-    
     kernel : np.ndarray
         The 2D convolution kernel, shape (kH, kW).
-        For example, a 3×3 edge detection kernel or a 5×5 Gaussian blur, etc.
-
-    padding : str, optional
-        The type of padding to use, default is 'reflect'.
-        Supported modes:
-            - 'reflect': Reflect the image about the border.
-            - 'constant': Zero-pad the image border.
-            - 'edge': Extend the border pixels.
-        You can add more modes if desired.
+    padding : str
+        The type of padding to use (e.g. 'reflect', 'constant', 'edge').
 
     Returns
     -------
     np.ndarray
-        The convolved image, with the same shape (H, W[, C]) as input.
-        - If input was uint8, the output is also uint8, clipped to [0..255].
-        - If input was floating-point, the output remains float32 (no clipping unless you add it explicitly).
-
-    Notes
-    -----
-    1. This function handles bigger kernels by automatically computing the necessary padding.
-    2. A triple nested loop is used if the image has multiple channels:
-          - Outer loop over channels (if color).
-          - Two inner loops for the height and width.
-       This makes the logic very explicit, which is useful for hardware reference.
-    3. For even-sized kernels, you can still do the same approach. The padding is kH//2 and kW//2.
-
-    Examples
-    --------
-    # Example usage with a color image and a 3×3 edge detection kernel:
-    import numpy as np
-    from PIL import Image
-
-    # Load an image and convert to a NumPy array (RGB)
-    pil_img = Image.open("sample.jpg").convert('RGB')
-    img_array = np.array(pil_img)
-
-    # Define an edge detection kernel (3×3)
-    edge_kernel = np.array([
-        [-1, -1, -1],
-        [-1,  8, -1],
-        [-1, -1, -1]
-    ], dtype=np.float32)
-
-    # Perform convolution
-    result = flexible_conv2d(img_array, edge_kernel, padding='reflect')
-
-    # Convert back to PIL for saving/viewing:
-    result_pil = Image.fromarray(result)
-    result_pil.save("convolved_output.png")
+        The convolved image, same shape as input (H, W[, C]).
     """
-
-    # 1. Validate the kernel dimension
+    # 1. Validate kernel dimension
     if kernel.ndim != 2:
         raise ValueError("The kernel must be a 2D array, e.g. shape (kH, kW).")
 
-    # 2. Validate the image dimension
+    # 2. Validate image dimension
     if image_array.ndim not in (2, 3):
         raise ValueError("Image must be 2D (grayscale) or 3D (color).")
 
     # Remember the original dtype so we can restore/clamp at the end if needed
     orig_dtype = image_array.dtype
 
-    # Convert to float32 for convolution math (avoid overflow in int)
+    # Convert to float32 for internal math
     image_float = image_array.astype(np.float32, copy=False)
     kernel_float = kernel.astype(np.float32, copy=False)
 
     # 3. Determine the image shape
     if image_float.ndim == 2:
-        # Single channel
         H, W = image_float.shape
         C = 1
     else:
-        # Multi-channel: e.g. H, W, 3 for RGB
         H, W, C = image_float.shape
 
     # 4. Determine kernel shape
@@ -99,7 +52,7 @@ def flexible_conv2d(image_array, kernel, padding='reflect'):
     padH = kH // 2
     padW = kW // 2
 
-    # 6. Prepare an output array (float32 internally)
+    # 6. Prepare an output array (float32)
     if C == 1:
         output = np.zeros((H, W), dtype=np.float32)
     else:
@@ -113,8 +66,6 @@ def flexible_conv2d(image_array, kernel, padding='reflect'):
 
     # 8. Convolve for each channel
     for c in range(C):
-
-        # Extract the channel data if color, or just the whole array if single-channel
         if C == 1:
             channel_data = image_float
         else:
@@ -127,27 +78,19 @@ def flexible_conv2d(image_array, kernel, padding='reflect'):
             mode=np_pad_mode
         )
 
-        # 9. Perform the convolution:
-        #    For each pixel (i, j) in the original (un-padded) domain,
-        #    compute the sum of elementwise multiplication of the kernel
-        #    with the overlapped region in 'padded'.
+        # 9. Perform the convolution
         for i in range(H):
             for j in range(W):
-                # Region of interest in the padded image
                 region = padded[i : i + kH, j : j + kW]
-                # Multiply element-wise and sum
                 val = np.sum(region * kernel_float)
                 if C == 1:
                     output[i, j] = val
                 else:
                     output[i, j, c] = val
 
-    # 10. If original was uint8 (e.g. a typical image), clamp to [0..255] and convert back to uint8
+    # 10. If original was uint8, clamp to [0..255] and convert back
     if np.issubdtype(orig_dtype, np.integer):
         output = np.clip(output, 0, 255).astype(np.uint8)
-    else:
-        # If it was float, keep as float (or you can clamp differently if you like)
-        pass
 
     return output
 
@@ -157,9 +100,10 @@ def get_kernel_by_type(kernel_type):
     Returns a NumPy kernel of various sizes for demonstration or testing.
     Extend or modify as needed.
     """
-    # Example built-in kernels. You can add 5×5, 7×7, etc. as needed.
+    import numpy as np
+
     if kernel_type == 'edge_detect_3x3':
-        # Basic 3x3 edge detection
+        # Basic 3×3 edge detection
         return np.array([
             [-1, -1, -1],
             [-1,  8, -1],
@@ -192,3 +136,97 @@ def get_kernel_by_type(kernel_type):
 
     # Default fallback
     return np.zeros((3, 3), dtype=np.float32)
+
+
+def software_grayscale(img_array):
+    """
+    Convert an RGB image (shape: H x W x 3) to grayscale using simple
+    average weighting in software.
+
+    Parameters
+    ----------
+    img_array : np.ndarray
+        A NumPy array of shape (H, W, 3) in uint8 or float32.
+
+    Returns
+    -------
+    np.ndarray
+        Grayscale image as a 2D array of shape (H, W) in the same dtype domain (uint8 or float32).
+    """
+    if img_array.ndim == 3 and img_array.shape[2] == 3:
+        # Convert to float32 to avoid overflow if needed
+        orig_dtype = img_array.dtype
+        float_img = img_array.astype(np.float32)
+
+        # Simple luminance (many possible ways; here is a straightforward average)
+        gray_float = 0.299 * float_img[:, :, 0] + \
+                     0.587 * float_img[:, :, 1] + \
+                     0.114 * float_img[:, :, 2]
+
+        # Convert back to original dtype
+        if np.issubdtype(orig_dtype, np.integer):
+            gray_float = np.clip(gray_float, 0, 255)
+            return gray_float.astype(np.uint8)
+        else:
+            return gray_float
+    else:
+        # If it's already single-channel, just return it
+        return img_array
+
+
+def fast_conv_scipy(image_array, kernel, padding='reflect'):
+    """
+    Perform 2D convolution using SciPy's convolve2d for each channel.
+    This function is used only if 'use_scipy' is checked.
+
+    Parameters
+    ----------
+    image_array : np.ndarray
+        The input image, shape (H, W) or (H, W, C). Typically uint8 or float.
+    kernel : np.ndarray
+        The 2D kernel, shape (kH, kW).
+    padding : str
+        One of 'reflect', 'constant', 'edge' (like your function). We’ll map these
+        to boundary modes in SciPy: 'symm' (similar to reflect), 'fill', or 'nearest'.
+
+    Returns
+    -------
+    np.ndarray
+        Convolved image, same shape (H, W) or (H, W, C).
+    """
+    # Map the "reflect", "constant", "edge" to SciPy's convolve2d boundary options.
+    # SciPy's 'symm' is akin to reflect. 'fill' uses zeros (constant). 'nearest' is for edge.
+    boundary_map = {
+        'reflect': 'symm',
+        'constant': 'fill',
+        'edge': 'nearest'
+    }
+    boundary_mode = boundary_map.get(padding, 'symm')  # default to 'symm'
+
+    # If single channel, just do one convolve2d
+    if image_array.ndim == 2:
+        # shape: (H, W)
+        conv_result = convolve2d(image_array, kernel, mode='same', boundary=boundary_mode)
+        return post_process_output(conv_result, image_array.dtype)
+
+    # If color image, do channel by channel
+    H, W, C = image_array.shape
+    out = np.zeros((H, W, C), dtype=np.float32)  # float intermediate
+
+    for c in range(C):
+        # convolve2d each channel
+        channel_conv = convolve2d(image_array[..., c], kernel, mode='same', boundary=boundary_mode)
+        out[..., c] = channel_conv
+
+    # Convert back to original dtype if needed
+    return post_process_output(out, image_array.dtype)
+
+
+def post_process_output(conv_result, orig_dtype):
+    """
+    Utility to clamp to [0..255] if the original data was uint8,
+    and convert back to uint8. Otherwise, keep it as float.
+    """
+    if np.issubdtype(orig_dtype, np.integer):
+        conv_result = np.clip(conv_result, 0, 255).astype(np.uint8)
+    return conv_result

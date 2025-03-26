@@ -17,9 +17,17 @@ Including another URLconf
 """
 
 from django.urls import path
-from myapp.views import Conv2DReferenceView, HardwareGrayscaleAPIView
+from myapp.views import (
+    Conv2DReferenceView,
+    HardwareGrayscaleAPIView,
+    SoftwareProcessAPIView
+)
 
 urlpatterns = [
+    # Main page
     path('', Conv2DReferenceView.as_view(), name='conv2d_reference'),
+    
+    # REST endpoints
     path('api/hw_grayscale/', HardwareGrayscaleAPIView.as_view(), name='hw_grayscale_api'),
+    path('api/software_process/', SoftwareProcessAPIView.as_view(), name='software_process_api'),
 ]
