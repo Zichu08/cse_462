@@ -43,7 +43,7 @@ Diagnostics:
     FilePath:        grayscale_kernel.cpp
     Replacements:    
       - FilePath:        'D:\cse_462\fgpa_convolution_acceleration\grayscale\grayscale\hls\.autopilot\db\grayscale_kernel.pp.0.cpp'
-        Offset:          1056624
+        Offset:          1056477
         Length:          0
         ReplacementText: 'VITIS_LOOP_38_1: '
   - DiagnosticName:  xilinx-label-all-loops
@@ -52,7 +52,7 @@ Diagnostics:
     FilePath:        grayscale_kernel.cpp
     Replacements:    
       - FilePath:        'D:\cse_462\fgpa_convolution_acceleration\grayscale\grayscale\hls\.autopilot\db\grayscale_kernel.pp.0.cpp'
-        Offset:          1056673
+        Offset:          1056526
         Length:          0
         ReplacementText: 'VITIS_LOOP_39_2: '
 ...

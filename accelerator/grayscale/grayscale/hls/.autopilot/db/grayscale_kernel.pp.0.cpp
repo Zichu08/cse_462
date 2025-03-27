@@ -9743,16 +9743,12 @@ private:
 
 typedef ap_axis<32, 0, 0, 0> AXI_PIXEL;
 
-__attribute__((sdx_kernel("grayscale_kernel", 0))) void grayscale_kernel(
+void grayscale_kernel(
     int width,
     int height,
     hls::stream<AXI_PIXEL> &input_stream,
     hls::stream<AXI_PIXEL> &output_stream
 ) {
-#line 1 "directive"
-#pragma HLSDIRECTIVE TOP name=grayscale_kernel
-# 17 "grayscale_kernel.cpp"
-
 
 
 #pragma HLS INTERFACE s_axilite port=width register bundle=control

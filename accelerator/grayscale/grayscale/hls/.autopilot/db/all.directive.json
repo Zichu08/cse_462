@@ -1,7 +1,7 @@
 [
   {
     "functionLabel": "",
-    "functionName": "grayscale_kernel",
+    "functionName": "filter_kernel",
     "id": 0,
     "ifcond": "",
     "insert_position": "",
@@ -11,13 +11,13 @@
       "option": [
         {
           "name": "name",
-          "value": "grayscale_kernel"
+          "value": "filter_kernel"
         }
       ]
     },
     "slx": false,
     "sourceFile": "",
     "sourceLine": 0,
-    "success": true
+    "success": false
   }
 ]

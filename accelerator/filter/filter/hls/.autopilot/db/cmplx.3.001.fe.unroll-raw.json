@@ -1,0 +1,18 @@
+{
+  "0": {
+    "basicblocks": 403,
+    "calls": "",
+    "file": "filter.cpp",
+    "fileloc": 84,
+    "instructions": 1270,
+    "loads": {
+      "L": 96,
+      "T": 9
+    },
+    "name": "filter_kernel",
+    "stores": {
+      "L": 76
+    },
+    "total_instructions": 1426
+  }
+}
