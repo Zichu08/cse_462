@@ -1,7 +1,13 @@
 # myapp/views.py
+
 from django.shortcuts import render
 from .forms import SoftwareConv2DForm
-from .utils import flexible_conv2d, get_kernel_by_type, software_grayscale, fast_conv_scipy
+from .utils import (
+    flexible_conv2d,
+    get_kernel_by_type,
+    software_grayscale,
+    fast_conv_scipy
+)
 from io import BytesIO
 from PIL import Image
 from django.views import View
@@ -16,8 +22,10 @@ import numpy as np
 import time
 import base64
 
-from .hardware import hardware_grayscale
-
+from .hardware import (
+    hardware_grayscale,
+    hardware_conv2d
+)
 
 ##############################################################################
 # Main Page View
@@ -36,11 +44,6 @@ class Conv2DReferenceView(View):
         return render(request, self.template_name, {"form": form})
 
     def post(self, request):
-        """
-        In this refactored version, the POST just re-encodes the user-uploaded
-        image into base64 for consumption by the front-end. The software/hardware
-        processes are done via their respective REST APIs.
-        """
         form = SoftwareConv2DForm(request.POST, request.FILES)
         use_scipy = request.POST.get('use_scipy', '')  # 'on' if checked, '' if unchecked
         if form.is_valid():
@@ -52,11 +55,8 @@ class Conv2DReferenceView(View):
             pil_image.save(buffer, format="PNG")
             original_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-            # We also store the chosen kernel type so the frontend can pass it to the software API
             kernel_type = form.cleaned_data['kernel_type']
 
-            # Render template with the base64 image (and kernel choice)
-            # The front-end JS will use fetch() to call the software/hardware endpoints
             return render(request, self.template_name, {
                 "form": form,
                 "original_image": original_base64,
@@ -89,11 +89,7 @@ class SoftwareProcessAPIView(APIView):
         if serializer.is_valid():
             # Extract uploaded image
             image_file = serializer.validated_data['image']
-
-            # Kernel type might come from the validated_data or from request.POST
             kernel_type = request.POST.get('kernel_type', 'edge_detect_3x3')
-
-            # Check if user wants SciPy approach
             use_scipy = request.POST.get('use_scipy', '')  # 'on' or ''
 
             # Convert to a PIL Image (ensure RGB)
@@ -166,7 +162,7 @@ class HardwareGrayscaleAPIView(APIView):
             # Convert to NumPy
             input_np = np.array(pil_image)
 
-            # Run hardware grayscale (which also returns the timing)
+            # Run hardware grayscale
             hw_result, hw_time = hardware_grayscale(input_np)
 
             # Convert back to PNG in memory
@@ -181,5 +177,67 @@ class HardwareGrayscaleAPIView(APIView):
                 "hw_gray_image": hw_gray_b64,
                 "hw_gray_time": f"{hw_time:.4f} seconds"
             }, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class HardwareConv2DAPIView(APIView):
+    """
+    A REST endpoint that:
+      - Receives an uploaded image via POST
+      - Receives a kernel choice (e.g. 'edge_detect_3x3')
+      - Converts that kernel to a 3x3 int matrix + factor if needed
+      - Calls hardware_conv2d to perform FPGA-based convolution
+      - Returns the convolved image in base64
+      - Returns the time taken on hardware
+    """
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, format=None):
+        serializer = ImageUploadSerializer(data=request.data)
+        if serializer.is_valid():
+            image_file = serializer.validated_data['image']
+            kernel_type = request.POST.get('kernel_type', 'edge_detect_3x3')
+
+            # Convert PIL image => NumPy
+            pil_image = Image.open(image_file).convert("RGB")
+            input_np = np.array(pil_image)
+
+            # Convert float kernel to int for the IP
+            float_kernel = get_kernel_by_type(kernel_type)  # shape (3, 3), float
+            # Example approach: multiply float kernel by some factor, then cast to int
+            # For small 3x3 filters like sharpen, edge detection, factor=1 is OK.
+            # For blur (1/9), you might set factor=9.
+            # We'll do a simple guess based on sum of kernel.
+            sum_of_elems = np.sum(float_kernel)
+            if abs(sum_of_elems) < 1e-6:
+                # e.g. for edge detection, sum=0, let's just use factor=1
+                factor = 1
+                int_kernel = float_kernel.astype(np.int32)
+            else:
+                # e.g. for blur_3x3 => sum=1
+                # or blur_5x5 => sum=1
+                # or sharpen => sum=1
+                # We'll just do factor=1 if sum=1. If sum=5, factor=5, etc.
+                # Adjust as you see fit for your hardware design.
+                factor = int(np.round(sum_of_elems))
+                if factor == 0:
+                    factor = 1  # fallback
+                int_kernel = (float_kernel * factor).astype(np.int32)
+
+            # Run hardware convolution
+            hw_conv_result, hw_conv_time = hardware_conv2d(input_np, int_kernel, factor=factor)
+
+            # Convert result to base64
+            out_pil = Image.fromarray(hw_conv_result)
+            buffer = BytesIO()
+            out_pil.save(buffer, format="PNG")
+            hw_conv_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            return Response({
+                "hw_conv_image": hw_conv_b64,
+                "hw_conv_time": f"{hw_conv_time:.4f} seconds"
+            }, status=status.HTTP_200_OK)
+
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
