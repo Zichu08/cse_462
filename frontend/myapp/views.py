@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import ImageUploadSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
+from .utils import compute_factor_and_int_kernel
 
 import numpy as np
 import time
@@ -205,25 +206,7 @@ class HardwareConv2DAPIView(APIView):
 
             # Convert float kernel to int for the IP
             float_kernel = get_kernel_by_type(kernel_type)  # shape (3, 3), float
-            # Example approach: multiply float kernel by some factor, then cast to int
-            # For small 3x3 filters like sharpen, edge detection, factor=1 is OK.
-            # For blur (1/9), you might set factor=9.
-            # We'll do a simple guess based on sum of kernel.
-            sum_of_elems = np.sum(float_kernel)
-            if abs(sum_of_elems) < 1e-6:
-                # e.g. for edge detection, sum=0, let's just use factor=1
-                factor = 1
-                int_kernel = float_kernel.astype(np.int32)
-            else:
-                # e.g. for blur_3x3 => sum=1
-                # or blur_5x5 => sum=1
-                # or sharpen => sum=1
-                # We'll just do factor=1 if sum=1. If sum=5, factor=5, etc.
-                # Adjust as you see fit for your hardware design.
-                factor = int(np.round(sum_of_elems))
-                if factor == 0:
-                    factor = 1  # fallback
-                int_kernel = (float_kernel * factor).astype(np.int32)
+            factor, int_kernel = compute_factor_and_int_kernel(float_kernel, max_denominator=100)
 
             # Run hardware convolution
             hw_conv_result, hw_conv_time = hardware_conv2d(input_np, int_kernel, factor=factor)

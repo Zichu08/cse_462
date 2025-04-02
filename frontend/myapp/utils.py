@@ -1,6 +1,8 @@
 # myapp/utils.py
 import numpy as np
 from scipy.signal import convolve2d
+from fractions import Fraction
+import math
 
 def flexible_conv2d(image_array, kernel, padding='reflect'):
     """
@@ -230,3 +232,65 @@ def post_process_output(conv_result, orig_dtype):
     if np.issubdtype(orig_dtype, np.integer):
         conv_result = np.clip(conv_result, 0, 255).astype(np.uint8)
     return conv_result
+
+
+def compute_factor_and_int_kernel(float_kernel, max_denominator=100):
+    """
+    Convert a small float kernel (e.g. 3x3) into an int32 kernel plus an integer factor,
+    by approximating each float entry as a fraction p/q with q <= max_denominator,
+    then using the LCM of all denominators as the factor.
+
+    Parameters
+    ----------
+    float_kernel : np.ndarray
+        The original float kernel of shape (3,3) or (kH,kW).
+    max_denominator : int, optional
+        The maximum denominator to allow when converting floats to fractions.
+
+    Returns
+    -------
+    (factor, int_kernel) : (int, np.ndarray of int32)
+        factor : int
+            The integer scaling factor to apply in hardware.
+        int_kernel : np.ndarray of shape (3,3) with int32
+            The scaled integer version of float_kernel.
+    """
+
+    # Flatten for easy iteration
+    flat_vals = float_kernel.ravel()
+
+    denominators = []
+    # Convert each float to a fraction with limited denominator
+    fractions_list = []
+    for val in flat_vals:
+        if abs(val) < 1e-12:
+            # Zero is easy: no denominator needed
+            fractions_list.append(Fraction(0, 1))
+            continue
+
+        frac_val = Fraction(val).limit_denominator(max_denominator)
+        fractions_list.append(frac_val)
+        denominators.append(frac_val.denominator)
+
+    # If the kernel is entirely zeros, just return factor=1, int_kernel=all zeros
+    if not denominators:
+        factor = 1
+        int_kernel = np.zeros_like(float_kernel, dtype=np.int32)
+        return factor, int_kernel
+
+    # Compute LCM of all denominators
+    # Python 3.9+ has math.lcm; for older versions, define your own or do a reduce
+    factor = denominators[0]
+    for d in denominators[1:]:
+        factor = math.lcm(factor, d)
+
+    # Multiply each fraction by factor to get an integer
+    scaled_ints = []
+    for frac_val in fractions_list:
+        # (frac_val.numerator * (factor // frac_val.denominator)) is guaranteed int
+        scaled_val = frac_val.numerator * (factor // frac_val.denominator)
+        scaled_ints.append(scaled_val)
+
+    int_kernel = np.array(scaled_ints, dtype=np.int32).reshape(float_kernel.shape)
+
+    return factor, int_kernel
