@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", function() {
             });
 
         } else if (hardwareMethodFlag === 'conv2d') {
-            // Do hardware conv2d
+            {% comment %} // Do hardware conv2d
             document.getElementById("hwConvStatusContainer").style.display = "block";
             let hwConvFormData = new FormData();
             hwConvFormData.append('image', file);
@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function() {
             .catch(err => {
                 console.error(err);
                 document.getElementById("hwConvStatusText").innerText = "Error calling hardware conv2d API.";
-            });
+            }); {% endcomment %}
         }
         // If hardwareMethodFlag is empty, do nothing for hardware
     }
