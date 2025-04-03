@@ -25,7 +25,7 @@ import base64
 
 from .hardware import (
     hardware_grayscale,
-    hardware_conv2d
+    # hardware_conv2d
 )
 
 ##############################################################################
@@ -193,47 +193,47 @@ class HardwareGrayscaleAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class HardwareConv2DAPIView(APIView):
-    """
-    A REST endpoint that:
-      - Receives an uploaded image via POST
-      - Receives a kernel choice (e.g. 'edge_detect_3x3')
-      - Converts that kernel to a 3x3 int matrix + factor if needed
-      - Calls hardware_conv2d to perform FPGA-based convolution
-      - Returns the convolved image in base64
-      - Returns the time taken on hardware
-    """
-    parser_classes = (MultiPartParser, FormParser)
+# class HardwareConv2DAPIView(APIView):
+#     """
+#     A REST endpoint that:
+#       - Receives an uploaded image via POST
+#       - Receives a kernel choice (e.g. 'edge_detect_3x3')
+#       - Converts that kernel to a 3x3 int matrix + factor if needed
+#       - Calls hardware_conv2d to perform FPGA-based convolution
+#       - Returns the convolved image in base64
+#       - Returns the time taken on hardware
+#     """
+#     parser_classes = (MultiPartParser, FormParser)
 
-    def post(self, request, format=None):
-        serializer = ImageUploadSerializer(data=request.data)
-        if serializer.is_valid():
-            image_file = serializer.validated_data['image']
-            kernel_type = request.POST.get('kernel_type', 'edge_detect_3x3')
+#     def post(self, request, format=None):
+#         serializer = ImageUploadSerializer(data=request.data)
+#         if serializer.is_valid():
+#             image_file = serializer.validated_data['image']
+#             kernel_type = request.POST.get('kernel_type', 'edge_detect_3x3')
 
-            # Convert PIL image => NumPy
-            pil_image = Image.open(image_file).convert("RGB")
-            input_np = np.array(pil_image)
+#             # Convert PIL image => NumPy
+#             pil_image = Image.open(image_file).convert("RGB")
+#             input_np = np.array(pil_image)
 
-            # Convert float kernel to int for the IP
-            float_kernel = get_kernel_by_type(kernel_type)  # shape (3, 3), float
-            factor, int_kernel = compute_factor_and_int_kernel(float_kernel, max_denominator=100)
+#             # Convert float kernel to int for the IP
+#             float_kernel = get_kernel_by_type(kernel_type)  # shape (3, 3), float
+#             factor, int_kernel = compute_factor_and_int_kernel(float_kernel, max_denominator=100)
 
-            # Run hardware convolution
-            hw_conv_result, hw_conv_time = hardware_conv2d(input_np, int_kernel, factor=factor)
+#             # Run hardware convolution
+#             hw_conv_result, hw_conv_time = hardware_conv2d(input_np, int_kernel, factor=factor)
 
-            # Convert result to base64
-            out_pil = Image.fromarray(hw_conv_result)
-            buffer = BytesIO()
-            out_pil.save(buffer, format="PNG")
-            hw_conv_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+#             # Convert result to base64
+#             out_pil = Image.fromarray(hw_conv_result)
+#             buffer = BytesIO()
+#             out_pil.save(buffer, format="PNG")
+#             hw_conv_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-            return Response({
-                "hw_conv_image": hw_conv_b64,
-                "hw_conv_time": f"{hw_conv_time:.4f} seconds",
-                "kernel": int_kernel,
-                "factor": factor
-            }, status=status.HTTP_200_OK)
+#             return Response({
+#                 "hw_conv_image": hw_conv_b64,
+#                 "hw_conv_time": f"{hw_conv_time:.4f} seconds",
+#                 "kernel": int_kernel,
+#                 "factor": factor
+#             }, status=status.HTTP_200_OK)
 
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         else:
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
