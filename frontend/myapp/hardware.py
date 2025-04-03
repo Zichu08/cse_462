@@ -86,58 +86,58 @@ def hardware_grayscale(img_array):
 filter_overlay = Overlay('/home/xilinx/pynq/overlays/filter/filter.bit')
 filter_dma = filter_overlay.axi_dma_0
 
-# class FilterKernel(DefaultIP):
-#     bindto = ['xilinx.com:hls:filter_kernel:1.0']
+class FilterKernel(DefaultIP):
+    bindto = ['xilinx.com:hls:filter_kernel:1.0']
 
-#     def __init__(self, description):
-#         super().__init__(description=description)
-#         self.width_addr = self.register_map.image_width.address
-#         self.height_addr = self.register_map.image_height.address
-#         self.factor_addr = self.register_map.kernel_factor.address
-#         # Kernel base address (0x40)
-#         self.kernel_base_addr = 0x40
+    def __init__(self, description):
+        super().__init__(description=description)
+        self.width_addr = self.register_map.image_width.address
+        self.height_addr = self.register_map.image_height.address
+        self.factor_addr = self.register_map.kernel_factor.address
+        # Kernel base address (0x40)
+        self.kernel_base_addr = 0x40
 
-#     @property
-#     def width(self):
-#         return self.read(self.width_addr)
+    @property
+    def width(self):
+        return self.read(self.width_addr)
 
-#     @width.setter
-#     def width(self, value):
-#         self.write(self.width_addr, value)
+    @width.setter
+    def width(self, value):
+        self.write(self.width_addr, value)
 
-#     @property
-#     def height(self):
-#         return self.read(self.height_addr)
+    @property
+    def height(self):
+        return self.read(self.height_addr)
 
-#     @height.setter
-#     def height(self, value):
-#         self.write(self.height_addr, value)
+    @height.setter
+    def height(self, value):
+        self.write(self.height_addr, value)
 
-#     @property
-#     def factor(self):
-#         return self.read(self.factor_addr)
+    @property
+    def factor(self):
+        return self.read(self.factor_addr)
 
-#     @factor.setter
-#     def factor(self, value):
-#         self.write(self.factor_addr, value)
+    @factor.setter
+    def factor(self, value):
+        self.write(self.factor_addr, value)
 
-#     @property
-#     def kernel(self):
-#         # Read 9 int32 coefficients (3x3)
-#         coeffs = []
-#         for i in range(9):
-#             val = self.read(self.kernel_base_addr + (4*i))
-#             coeffs.append(val)
-#         return np.array(coeffs, dtype=np.int32).reshape(3,3)
+    @property
+    def kernel(self):
+        # Read 9 int32 coefficients (3x3)
+        coeffs = []
+        for i in range(9):
+            val = self.read(self.kernel_base_addr + (4*i))
+            coeffs.append(val)
+        return np.array(coeffs, dtype=np.int32).reshape(3,3)
 
-#     @kernel.setter
-#     def kernel(self, matrix):
-#         matrix = np.array(matrix, dtype=np.int32)
-#         if matrix.shape != (3,3):
-#             raise ValueError(f"Kernel must be 3x3, got {matrix.shape}")
-#         flat = matrix.flatten()
-#         for i, val in enumerate(flat):
-#             self.write(self.kernel_base_addr + (4*i), int(val))
+    @kernel.setter
+    def kernel(self, matrix):
+        matrix = np.array(matrix, dtype=np.int32)
+        if matrix.shape != (3,3):
+            raise ValueError(f"Kernel must be 3x3, got {matrix.shape}")
+        flat = matrix.flatten()
+        for i, val in enumerate(flat):
+            self.write(self.kernel_base_addr + (4*i), int(val))
 
 # Reference to the IP block instance
 filter_kernel_ip = filter_overlay.filter_kernel_0  # The filter_kernel IP
