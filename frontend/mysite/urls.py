@@ -19,7 +19,6 @@ Including another URLconf
 from django.urls import path
 from myapp.views import (
     Conv2DReferenceView,
-    HardwareGrayscaleAPIView,
     SoftwareProcessAPIView,
     HardwareConv2DAPIView
 )
@@ -29,6 +28,5 @@ urlpatterns = [
     
     # REST endpoints
     path('api/software_process/', SoftwareProcessAPIView.as_view(), name='software_process_api'),
-    path('api/hw_grayscale/', HardwareGrayscaleAPIView.as_view(), name='hw_grayscale_api'),
     path('api/hw_conv2d/', HardwareConv2DAPIView.as_view(), name='hw_conv2d_api'),
 ]

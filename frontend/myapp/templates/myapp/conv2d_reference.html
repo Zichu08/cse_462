@@ -39,7 +39,6 @@
             <label for="hardwareMethod" class="form-label">Hardware Method</label>
             <select name="hardware_method" id="hardwareMethod" class="form-select">
                 <option value="">No Hardware</option>
-                <option value="grayscale">Hardware Grayscale</option>
                 <option value="conv2d" selected>Hardware Conv2D</option>
             </select>
         </div>
@@ -47,7 +46,6 @@
         <button type="submit" class="btn btn-primary">Upload</button>
     </form>
 
-    <!-- If we have an uploaded image, embed details for JavaScript -->
     {% if original_image %}
     <input type="hidden" id="originalImageB64" value="{{ original_image }}">
     <input type="hidden" id="selectedKernel" value="{{ selected_kernel }}">
@@ -77,11 +75,6 @@
                 <img id="swConvImage" class="img-fluid border" alt="Software Convolution"/>
             </div>
 
-            <!-- Hardware Grayscale -->
-            <div class="col-md-2 mb-3" id="hwGrayContainer" style="display:none;">
-                <h5>Hardware Grayscale <span id="hwGrayTime" class="text-muted fs-6"></span></h5>
-                <img id="hwGrayImage" class="img-fluid border" alt="Hardware Grayscale"/>
-            </div>
 
             <!-- Hardware Convolution -->
             <div class="col-md-2 mb-3" id="hwConvContainer" style="display:none;">
@@ -94,9 +87,6 @@
     <!-- Loading indicators -->
     <div class="mt-4" id="swStatusContainer" style="display:none;">
         <span id="swStatusText">Processing software grayscale & convolution...</span>
-    </div>
-    <div class="mt-4" id="hwGrayStatusContainer" style="display:none;">
-        <span id="hwGrayStatusText">Processing hardware grayscale...</span>
     </div>
     <div class="mt-4" id="hwConvStatusContainer" style="display:none;">
         <span id="hwConvStatusText">Processing hardware convolution...</span>
@@ -129,7 +119,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const originalImageB64 = document.getElementById("originalImageB64")?.value;
     const selectedKernel = document.getElementById("selectedKernel")?.value;
     const useScipyFlag = document.getElementById("useScipyFlag")?.value;  // 'on' or ''
-    const hardwareMethodFlag = document.getElementById("hardwareMethodFlag")?.value; // '', 'grayscale', or 'conv2d'
+    const hardwareMethodFlag = document.getElementById("hardwareMethodFlag")?.value; // '', 'conv2d'
 
     if (originalImageB64) {
         // Show results container
@@ -183,35 +173,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
 
         // 2) HARDWARE PROCESS (if selected)
-        if (hardwareMethodFlag === 'grayscale') {
-            // Do hardware grayscale
-            document.getElementById("hwGrayStatusContainer").style.display = "block";
-            let hwGrayFormData = new FormData();
-            hwGrayFormData.append('image', file);
-
-            fetch("{% url 'hw_grayscale_api' %}", {
-                method: 'POST',
-                body: hwGrayFormData
-            })
-            .then(resp => resp.json())
-            .then(data => {
-                document.getElementById("hwGrayStatusContainer").style.display = "none";
-                if (data.hw_gray_image) {
-                    document.getElementById("hwGrayContainer").style.display = "block";
-                    document.getElementById("hwGrayImage").src =
-                        "data:image/png;base64," + data.hw_gray_image;
-                    document.getElementById("hwGrayTime").innerText =
-                        `(${data.hw_gray_time})`;
-                } else {
-                    document.getElementById("hwGrayStatusText").innerText = "Failed to get hardware grayscale image.";
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                document.getElementById("hwGrayStatusText").innerText = "Error calling hardware grayscale API.";
-            });
-
-        } else if (hardwareMethodFlag === 'conv2d') {
+        if (hardwareMethodFlag === 'conv2d') {
             // Do hardware conv2d
             document.getElementById("hwConvStatusContainer").style.display = "block";
             let hwConvFormData = new FormData();

@@ -1,30 +1,28 @@
 # myapp/views.py
 
 from django.shortcuts import render
-from .forms import SoftwareConv2DForm
-from .utils import (
-    flexible_conv2d,
-    get_kernel_by_type,
-    software_grayscale,
-    fast_conv_scipy
-)
-from io import BytesIO
-from PIL import Image
 from django.views import View
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import ImageUploadSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
-from .utils import compute_factor_and_int_kernel
 
 import numpy as np
 import time
 import base64
+from io import BytesIO
+from PIL import Image
 
+from .forms import SoftwareConv2DForm
+from .serializers import ImageUploadSerializer
+from .utils import (
+    flexible_conv2d,
+    get_kernel_by_type,
+    software_grayscale,
+    fast_conv_scipy,
+    compute_factor_and_int_kernel
+)
 from .hardware import (
-    hardware_grayscale,
     hardware_conv2d
 )
 
@@ -54,7 +52,7 @@ class Conv2DReferenceView(View):
         """
         form = SoftwareConv2DForm(request.POST, request.FILES)
         use_scipy = request.POST.get('use_scipy', '')  # 'on' or ''
-        hardware_method = request.POST.get('hardware_method', '')  # '', 'grayscale', 'conv2d'
+        hardware_method = request.POST.get('hardware_method', '')  # '', 'conv2d'
 
         if form.is_valid():
             image_file = form.cleaned_data['image']
@@ -108,7 +106,7 @@ class SoftwareProcessAPIView(APIView):
             pil_image = Image.open(image_file).convert("RGB")
             image_np = np.array(pil_image)
 
-            # 1) Software grayscale
+            # software grayscale
             start_gray = time.perf_counter()
             gray_np = software_grayscale(image_np)  # shape (H, W)
             end_gray = time.perf_counter()
@@ -120,7 +118,7 @@ class SoftwareProcessAPIView(APIView):
             gray_pil.save(gray_buffer, format="PNG")
             sw_gray_b64 = base64.b64encode(gray_buffer.getvalue()).decode('utf-8')
 
-            # 2) Software convolution
+            # software convolution
             kernel = get_kernel_by_type(kernel_type)
 
             start_conv = time.perf_counter()
@@ -148,46 +146,6 @@ class SoftwareProcessAPIView(APIView):
                 "software_gray_time": f"{gray_time:.4f} seconds",
                 "software_conv_image": sw_conv_b64,
                 "software_conv_time": f"{conv_time:.4f} seconds",
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class HardwareGrayscaleAPIView(APIView):
-    """
-    A REST endpoint that:
-      - Receives an uploaded image via POST
-      - Calls hardware_grayscale on the FPGA
-      - Returns the grayscale as base64
-      - Also returns the time it took to run on hardware
-    """
-    parser_classes = (MultiPartParser, FormParser)
-
-    def post(self, request, format=None):
-        serializer = ImageUploadSerializer(data=request.data)
-        if serializer.is_valid():
-            # Extract the image file from the request
-            image_file = serializer.validated_data['image']
-
-            # Convert to an RGB PIL Image
-            pil_image = Image.open(image_file).convert("RGB")
-            # Convert to NumPy
-            input_np = np.array(pil_image)
-
-            # Run hardware grayscale
-            hw_result, hw_time = hardware_grayscale(input_np)
-
-            # Convert back to PNG in memory
-            out_pil = Image.fromarray(hw_result)
-            buffer = BytesIO()
-            out_pil.save(buffer, format="PNG")
-
-            # Encode as base64
-            hw_gray_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-            return Response({
-                "hw_gray_image": hw_gray_b64,
-                "hw_gray_time": f"{hw_time:.4f} seconds"
             }, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -234,6 +192,5 @@ class HardwareConv2DAPIView(APIView):
                 "kernel": int_kernel,
                 "factor": factor
             }, status=status.HTTP_200_OK)
-
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
