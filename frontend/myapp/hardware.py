@@ -3,6 +3,7 @@ from pynq import DefaultIP, Overlay, allocate
 import numpy as np
 import time
 import threading
+from .hardware_globals import filter_overlay, filter_dma, filter_kernel_ip
 
 ################################################################################
 # Hardware convolution logic
@@ -85,8 +86,7 @@ def hardware_conv2d(img_array, kernel_3x3, factor=1):
         hw_time : float, seconds
     """
     with hardware_lock:
-        print("[DEBUG] hardware_conv2d: Loading overlay fresh...")
-        filter_overlay = Overlay('/home/xilinx/pynq/overlays/filter/filter.bit')
+        print("[DEBUG] hardware_conv2d: using overlay from hardware_globals")
         filter_dma = filter_overlay.axi_dma_0
         filter_kernel_ip = filter_overlay.filter_kernel_0
 
