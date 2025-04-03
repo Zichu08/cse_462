@@ -4,7 +4,7 @@ from django.apps import AppConfig
 from django.conf import settings
 import sys
 
-class MyAppConfig(AppConfig):
+class MyappConfig(AppConfig):
     name = 'myapp'
 
     def ready(self):
