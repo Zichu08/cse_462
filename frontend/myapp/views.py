@@ -190,8 +190,6 @@ class HardwareConv2DAPIView(APIView):
             return Response({
                 "hw_conv_image": hw_conv_b64,
                 "hw_conv_time": f"{hw_conv_time:.4f} seconds",
-                "kernel": float_kernel,
-                "factor": factor
             }, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
