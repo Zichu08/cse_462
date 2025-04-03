@@ -10,7 +10,7 @@ class MyappConfig(AppConfig):
     def ready(self):
         # If we already have overlay, skip to avoid second load
         from . import hardware_globals
-        if hardware_globals.overlay is not None:
+        if hardware_globals.filter_overlay is not None:
             print("[DEBUG] MyAppConfig.ready(): overlay already loaded, skipping re-load.")
             return
 
