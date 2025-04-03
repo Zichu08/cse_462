@@ -20,6 +20,6 @@ class MyappConfig(AppConfig):
         overlay = Overlay("/home/xilinx/pynq/overlays/filter/filter.bit")
 
         hardware_globals.filter_overlay = overlay
-        hardware_globals.filter_dma = filter_overlay.axi_dma_0
-        hardware_globals.filter_kernel_ip = filter_overlay.filter_kernel_0
+        hardware_globals.filter_dma = overlay.axi_dma_0
+        hardware_globals.filter_kernel_ip = overlay.filter_kernel_0
         print("[DEBUG] Overlay loaded and references stored in hardware_globals.")
