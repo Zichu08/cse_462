@@ -1,18 +1,23 @@
 # myapp/apps.py
 
 from django.apps import AppConfig
+from django.conf import settings
 import sys
 
-class MyappConfig(AppConfig):
+class MyAppConfig(AppConfig):
     name = 'myapp'
-    
+
     def ready(self):
+        # If we already have overlay, skip to avoid second load
+        from . import hardware_globals
+        if hardware_globals.overlay is not None:
+            print("[DEBUG] MyAppConfig.ready(): overlay already loaded, skipping re-load.")
+            return
+
         print("[DEBUG] MyAppConfig.ready(): Loading filter overlay in main thread.")
         from pynq import Overlay
-        filter_overlay = Overlay("/home/xilinx/pynq/overlays/filter/filter.bit")
 
-        # store references on a global object or a module-level variable
-        from . import hardware_globals
+        filter_overlay = Overlay("/home/xilinx/pynq/overlays/filter/filter.bit")
         hardware_globals.overlay = filter_overlay
         hardware_globals.filter_dma = filter_overlay.axi_dma_0
         hardware_globals.filter_kernel_ip = filter_overlay.filter_kernel_0
