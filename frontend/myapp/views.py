@@ -165,32 +165,56 @@ class HardwareConv2DAPIView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, format=None):
-        serializer = ImageUploadSerializer(data=request.data)
-        if serializer.is_valid():
-            image_file = serializer.validated_data['image']
-            kernel_type = request.POST.get('kernel_type', 'edge_detect_3x3')
+        print("[DEBUG] Entering HardwareConv2DAPIView.post()")
 
-            # Convert PIL image => NumPy
+        serializer = ImageUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            print("[DEBUG] serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        print("[DEBUG] Serializer is valid.")
+
+        image_file = serializer.validated_data['image']
+        kernel_type = request.POST.get('kernel_type', 'edge_detect_3x3')
+        print(f"[DEBUG] kernel_type = {kernel_type}")
+
+        try:
+            # 1) Convert PIL image => NumPy
             pil_image = Image.open(image_file).convert("RGB")
             input_np = np.array(pil_image)
+            print("[DEBUG] Loaded image, shape =", input_np.shape)
 
-            # Convert float kernel to int for the IP
+            # 2) Convert float kernel to int for the IP
             float_kernel = get_kernel_by_type(kernel_type)  # shape (3, 3), float
+            print(f"[DEBUG] float_kernel:\n{float_kernel}")
+
             factor = compute_factor_for_kernel(float_kernel)
+            print(f"[DEBUG] Computed factor = {factor}")
+
             int_kernel = convert_float_kernel_to_int(float_kernel, factor)  # convert to int32
+            print(f"[DEBUG] int_kernel:\n{int_kernel}")
 
-            # Run hardware convolution
+            # 3) Run hardware convolution
+            print("[DEBUG] Calling hardware_conv2d(...)")
             hw_conv_result, hw_conv_time = hardware_conv2d(input_np, int_kernel, factor=factor)
+            print(f"[DEBUG] hardware_conv2d finished in {hw_conv_time:.4f} seconds.")
 
-            # Convert result to base64
+            # 4) Convert result to base64
             out_pil = Image.fromarray(hw_conv_result)
             buffer = BytesIO()
             out_pil.save(buffer, format="PNG")
             hw_conv_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            print("[DEBUG] Convolution result converted to base64.")
 
+            # 5) Return JSON response
             return Response({
                 "hw_conv_image": hw_conv_b64,
                 "hw_conv_time": f"{hw_conv_time:.4f} seconds",
             }, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            print("[DEBUG] Exception occurred:", e)
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
