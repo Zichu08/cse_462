@@ -234,66 +234,81 @@ def post_process_output(conv_result, orig_dtype):
     return conv_result
 
 
-def compute_factor_and_int_kernel(float_kernel, max_denominator=100):
+def compute_factor_for_kernel(float_kernel, max_denominator=100):
     """
-    Convert a small float kernel (e.g. 3x3) into an int32 kernel plus an integer factor,
-    by approximating each float entry as a fraction p/q with q <= max_denominator,
-    then using the LCM of all denominators as the factor.
+    Compute an integer 'factor' for scaling a float kernel (e.g. 3x3).
+    We do this by:
+      1) Approximating each float as a fraction p/q with q <= max_denominator
+      2) Gathering denominators into a list
+      3) If kernel is all zeros, return factor=1
+      4) Otherwise compute the LCM of the denominators => that is 'factor'
 
     Parameters
     ----------
-    float_kernel : np.ndarray
-        The original float kernel of shape (3,3) or (kH,kW). 
-        May be np.float32, np.float64, etc.
-    max_denominator : int, optional
-        The maximum denominator to allow when converting floats to fractions.
+    float_kernel : np.ndarray (shape e.g. (3,3))
+        The float kernel, e.g. from get_kernel_by_type. Could have negative or fractional values.
+    max_denominator : int
+        The maximum denominator to allow in fraction approximation.
 
     Returns
     -------
-    (factor, int_kernel) : (int, np.ndarray of int32)
-        factor : int
-            The integer scaling factor to apply in hardware.
-        int_kernel : np.ndarray of shape (3,3) with int32
-            The scaled integer version of float_kernel.
+    factor : int
+        The integer scale factor for the kernel.
+        For example, if the kernel is [1/9, 1/9, ...], factor might be 9.
+        If kernel is [ 0, -1,  5 ], factor might be 1 or 5, etc.
     """
-    # Flatten for easy iteration
-    flat_vals = float_kernel.ravel()
 
+    flat_vals = float_kernel.ravel()
     denominators = []
-    fractions_list = []
+
+    # For detecting the all-zeros case:
+    is_all_zero = True
 
     for val in flat_vals:
-        # Convert the NumPy float to a native Python float
         val_pyfloat = float(val)
-
-        if abs(val_pyfloat) < 1e-12:
-            # Zero is easy: no denominator needed
-            fractions_list.append(Fraction(0, 1))
-            continue
-
-        # Convert to a fraction with limited denominator
+        if abs(val_pyfloat) > 1e-12:
+            is_all_zero = False
+        # Convert to fraction with limited denominator
         frac_val = Fraction(val_pyfloat).limit_denominator(max_denominator)
-        fractions_list.append(frac_val)
-        denominators.append(frac_val.denominator)
+        # Store denominator if not zero fraction
+        if frac_val.numerator != 0:
+            denominators.append(frac_val.denominator)
 
-    # If the kernel is entirely zeros, just return factor=1, int_kernel=all zeros
-    if not denominators:
-        factor = 1
-        int_kernel = np.zeros_like(float_kernel, dtype=np.int32)
-        return factor, int_kernel
+    # If kernel is effectively all zeros
+    if is_all_zero or not denominators:
+        return 1  # factor=1
 
-    # Compute LCM of all denominators
-    # Python 3.9+ has math.lcm; for older versions, define your own or reduce
+    # Compute the LCM
     factor = denominators[0]
     for d in denominators[1:]:
         factor = math.lcm(factor, d)
 
-    # Multiply each fraction by factor to get an integer
+    return factor
+
+
+def convert_float_kernel_to_int(float_kernel, factor):
+    """
+    Multiply the float kernel by 'factor' and cast to int32.
+
+    Parameters
+    ----------
+    float_kernel : np.ndarray
+        The original float kernel, shape (3,3) or (kH,kW)
+    factor : int
+        A scale factor, typically from compute_factor_for_kernel
+
+    Returns
+    -------
+    int_kernel : np.ndarray, shape same as float_kernel, dtype=int32
+        Each entry is (float_kernel[i]*factor), rounded to int
+    """
+    # Flatten, multiply, reshape
+    flat_vals = float_kernel.ravel()
     scaled_ints = []
-    for frac_val in fractions_list:
-        scaled_val = frac_val.numerator * (factor // frac_val.denominator)
+    for val in flat_vals:
+        val_pyfloat = float(val)
+        scaled_val = round(val_pyfloat * factor)
         scaled_ints.append(scaled_val)
 
     int_kernel = np.array(scaled_ints, dtype=np.int32).reshape(float_kernel.shape)
-
-    return factor, int_kernel
+    return int_kernel

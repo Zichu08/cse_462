@@ -20,7 +20,8 @@ from .utils import (
     get_kernel_by_type,
     software_grayscale,
     fast_conv_scipy,
-    compute_factor_and_int_kernel
+    compute_factor_for_kernel,
+    convert_float_kernel_to_int
 )
 from .hardware import (
     hardware_conv2d
@@ -175,10 +176,10 @@ class HardwareConv2DAPIView(APIView):
 
             # Convert float kernel to int for the IP
             float_kernel = get_kernel_by_type(kernel_type)  # shape (3, 3), float
-            factor, int_kernel = compute_factor_and_int_kernel(float_kernel, max_denominator=100)
+            factor = compute_factor_for_kernel(float_kernel)
 
             # Run hardware convolution
-            hw_conv_result, hw_conv_time = hardware_conv2d(input_np, int_kernel, factor=factor)
+            hw_conv_result, hw_conv_time = hardware_conv2d(input_np, float_kernel, factor=factor)
 
             # Convert result to base64
             out_pil = Image.fromarray(hw_conv_result)
@@ -189,7 +190,7 @@ class HardwareConv2DAPIView(APIView):
             return Response({
                 "hw_conv_image": hw_conv_b64,
                 "hw_conv_time": f"{hw_conv_time:.4f} seconds",
-                "kernel": int_kernel,
+                "kernel": float_kernel,
                 "factor": factor
             }, status=status.HTTP_200_OK)
         else:
