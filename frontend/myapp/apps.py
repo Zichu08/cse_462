@@ -3,13 +3,19 @@
 from django.apps import AppConfig
 from django.conf import settings
 import sys
+import os
 
 class MyappConfig(AppConfig):
     name = 'myapp'
 
     def ready(self):
-        # If we already have overlay, skip to avoid second load
         from . import hardware_globals
+
+        # If not the "real" process, skip
+        if os.environ.get('RUN_MAIN') != 'true':
+            print("[DEBUG] MyAppConfig.ready() in watcher process => skipping overlay load.")
+            return
+
         if hardware_globals.filter_overlay is not None:
             print("[DEBUG] MyAppConfig.ready(): overlay already loaded, skipping re-load.")
             return
