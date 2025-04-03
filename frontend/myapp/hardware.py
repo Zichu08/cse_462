@@ -2,13 +2,11 @@
 from pynq import DefaultIP, Overlay, allocate
 import numpy as np
 import time
+import threading
 
 ################################################################################
 # Hardware convolution logic
 ################################################################################
-filter_overlay = Overlay('/home/xilinx/pynq/overlays/filter/filter.bit')
-filter_dma = filter_overlay.axi_dma_0
-
 class FilterKernel(DefaultIP):
     bindto = ['xilinx.com:hls:filter_kernel:1.0']
 
@@ -62,9 +60,8 @@ class FilterKernel(DefaultIP):
         for i, val in enumerate(flat):
             self.write(self.kernel_base_addr + (4*i), int(val))
 
-# Instance of IP block
-filter_kernel_ip = filter_overlay.filter_kernel_0
 
+hardware_lock = threading.Lock()
 def hardware_conv2d(img_array, kernel_3x3, factor=1):
     """
     Perform a hardware convolution on the FPGA using the 'filter_kernel'
@@ -87,67 +84,71 @@ def hardware_conv2d(img_array, kernel_3x3, factor=1):
         result_image : np.ndarray of shape (H, W, 3) in uint8
         hw_time : float, seconds
     """
-    print("[DEBUG] Entering hardware_conv2d()")
+    with hardware_lock:
+        print("[DEBUG] hardware_conv2d: Loading overlay fresh...")
+        filter_overlay = Overlay('/home/xilinx/pynq/overlays/filter/filter.bit')
+        filter_dma = filter_overlay.axi_dma_0
+        filter_kernel_ip = filter_overlay.filter_kernel_0
 
-    start_time = time.perf_counter()
+        start_time = time.perf_counter()
 
-    # Dimensions
-    height, width, _ = img_array.shape
-    print(f"[DEBUG] image shape = {img_array.shape} (height={height}, width={width})")
+        # Dimensions
+        height, width, _ = img_array.shape
+        print(f"[DEBUG] image shape = {img_array.shape} (height={height}, width={width})")
 
-    # 1) Pack channels into 32-bit
-    print("[DEBUG] Packing channels into 32-bit format...")
-    combined_array = (
-        (img_array[:,:,0].astype(np.uint32) << 16) |
-        (img_array[:,:,1].astype(np.uint32) <<  8) |
-         img_array[:,:,2].astype(np.uint32)
-    )
-    print("[DEBUG] combined_array shape =", combined_array.shape)
+        # 1) Pack channels into 32-bit
+        print("[DEBUG] Packing channels into 32-bit format...")
+        combined_array = (
+            (img_array[:,:,0].astype(np.uint32) << 16) |
+            (img_array[:,:,1].astype(np.uint32) <<  8) |
+            img_array[:,:,2].astype(np.uint32)
+        )
+        print("[DEBUG] combined_array shape =", combined_array.shape)
 
-    # 2) Allocate DMA buffers
-    print("[DEBUG] Allocating DMA buffers...")
-    in_buffer = allocate(shape=combined_array.shape, dtype=np.uint32)
-    out_buffer = allocate(shape=combined_array.shape, dtype=np.uint32)
-    in_buffer[:] = combined_array
-    print("[DEBUG] Copied data to in_buffer.")
+        # 2) Allocate DMA buffers
+        print("[DEBUG] Allocating DMA buffers...")
+        in_buffer = allocate(shape=combined_array.shape, dtype=np.uint32)
+        out_buffer = allocate(shape=combined_array.shape, dtype=np.uint32)
+        in_buffer[:] = combined_array
+        print("[DEBUG] Copied data to in_buffer.")
 
-    # 3) Program the filter_kernel IP
-    print(f"[DEBUG] Programming filter_kernel IP with width={width}, height={height}, factor={factor}")
-    print(f"[DEBUG] kernel_3x3:\n{kernel_3x3}")
-    filter_kernel_ip.width = width
-    filter_kernel_ip.height = height
-    filter_kernel_ip.factor = factor
-    filter_kernel_ip.kernel = kernel_3x3
+        # 3) Program the filter_kernel IP
+        print(f"[DEBUG] Programming filter_kernel IP with width={width}, height={height}, factor={factor}")
+        print(f"[DEBUG] kernel_3x3:\n{kernel_3x3}")
+        filter_kernel_ip.width = width
+        filter_kernel_ip.height = height
+        filter_kernel_ip.factor = factor
+        filter_kernel_ip.kernel = kernel_3x3
 
-    # 4) DMA
-    print("[DEBUG] Starting DMA transfers...")
-    filter_dma.sendchannel.transfer(in_buffer)
-    filter_dma.recvchannel.transfer(out_buffer)
+        # 4) DMA
+        print("[DEBUG] Starting DMA transfers...")
+        filter_dma.sendchannel.transfer(in_buffer)
+        filter_dma.recvchannel.transfer(out_buffer)
 
-    # Start IP
-    print("[DEBUG] Writing IP start bit (0x00 => 1)")
-    filter_kernel_ip.write(0x00, 1)
+        # Start IP
+        print("[DEBUG] Writing IP start bit (0x00 => 1)")
+        filter_kernel_ip.write(0x00, 1)
 
-    print("[DEBUG] Waiting for sendchannel DMA to finish...")
-    filter_dma.sendchannel.wait()
-    print("[DEBUG] sendchannel finished. Waiting for recvchannel DMA to finish...")
-    filter_dma.recvchannel.wait()
-    print("[DEBUG] recvchannel finished. DMA complete.")
+        print("[DEBUG] Waiting for sendchannel DMA to finish...")
+        filter_dma.sendchannel.wait()
+        print("[DEBUG] sendchannel finished. Waiting for recvchannel DMA to finish...")
+        filter_dma.recvchannel.wait()
+        print("[DEBUG] recvchannel finished. DMA complete.")
 
-    # 5) Unpack the result
-    print("[DEBUG] Unpacking output buffer to R,G,B channels...")
-    r_channel = (out_buffer >> 16) & 0xFF
-    g_channel = (out_buffer >>  8) & 0xFF
-    b_channel =  out_buffer        & 0xFF
-    conv_result = np.stack((r_channel, g_channel, b_channel), axis=-1).astype(np.uint8)
-    print("[DEBUG] conv_result shape =", conv_result.shape)
+        # 5) Unpack the result
+        print("[DEBUG] Unpacking output buffer to R,G,B channels...")
+        r_channel = (out_buffer >> 16) & 0xFF
+        g_channel = (out_buffer >>  8) & 0xFF
+        b_channel =  out_buffer        & 0xFF
+        conv_result = np.stack((r_channel, g_channel, b_channel), axis=-1).astype(np.uint8)
+        print("[DEBUG] conv_result shape =", conv_result.shape)
 
-    # 6) Free buffers
-    print("[DEBUG] Freeing DMA buffers...")
-    in_buffer.freebuffer()
-    out_buffer.freebuffer()
+        # 6) Free buffers
+        print("[DEBUG] Freeing DMA buffers...")
+        in_buffer.freebuffer()
+        out_buffer.freebuffer()
 
-    end_time = time.perf_counter()
-    hw_time = end_time - start_time
-    print(f"[DEBUG] hardware_conv2d() done. Took {hw_time:.4f} seconds.")
-    return conv_result, hw_time
+        end_time = time.perf_counter()
+        hw_time = end_time - start_time
+        print(f"[DEBUG] hardware_conv2d() done. Took {hw_time:.4f} seconds.")
+        return conv_result, hw_time
