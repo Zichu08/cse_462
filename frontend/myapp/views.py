@@ -45,24 +45,35 @@ class Conv2DReferenceView(View):
         return render(request, self.template_name, {"form": form})
 
     def post(self, request):
+        """
+        Renders the result page with:
+            - Base64 original image
+            - The chosen kernel
+            - Whether to use SciPy
+            - Which hardware method (none, grayscale, conv2d)
+        """
         form = SoftwareConv2DForm(request.POST, request.FILES)
-        use_scipy = request.POST.get('use_scipy', '')  # 'on' if checked, '' if unchecked
+        use_scipy = request.POST.get('use_scipy', '')  # 'on' or ''
+        hardware_method = request.POST.get('hardware_method', '')  # '', 'grayscale', 'conv2d'
+
         if form.is_valid():
             image_file = form.cleaned_data['image']
             pil_image = Image.open(image_file)
 
-            # Convert the original image to base64 for front-end JavaScript use
+            # Convert the original image to base64
             buffer = BytesIO()
             pil_image.save(buffer, format="PNG")
             original_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
             kernel_type = form.cleaned_data['kernel_type']
 
+            # Return context to the template
             return render(request, self.template_name, {
                 "form": form,
                 "original_image": original_base64,
                 "selected_kernel": kernel_type,
-                "use_scipy": use_scipy
+                "use_scipy": use_scipy,
+                "hardware_method": hardware_method,
             })
         else:
             return render(request, self.template_name, {"form": form})
