@@ -11,11 +11,6 @@ class MyappConfig(AppConfig):
     def ready(self):
         from . import hardware_globals
 
-        # If not the "real" process, skip
-        if os.environ.get('RUN_MAIN') != 'true':
-            print("[DEBUG] MyAppConfig.ready() in watcher process => skipping overlay load.")
-            return
-
         if hardware_globals.filter_overlay is not None:
             print("[DEBUG] MyAppConfig.ready(): overlay already loaded, skipping re-load.")
             return
