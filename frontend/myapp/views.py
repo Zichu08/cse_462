@@ -177,9 +177,10 @@ class HardwareConv2DAPIView(APIView):
             # Convert float kernel to int for the IP
             float_kernel = get_kernel_by_type(kernel_type)  # shape (3, 3), float
             factor = compute_factor_for_kernel(float_kernel)
+            int_kernel = convert_float_kernel_to_int(float_kernel, factor)  # convert to int32
 
             # Run hardware convolution
-            hw_conv_result, hw_conv_time = hardware_conv2d(input_np, float_kernel, factor=factor)
+            hw_conv_result, hw_conv_time = hardware_conv2d(input_np, int_kernel, factor=factor)
 
             # Convert result to base64
             out_pil = Image.fromarray(hw_conv_result)
