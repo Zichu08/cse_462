@@ -7,9 +7,9 @@ from myapp.hardware_globals import filter_overlay, filter_dma, filter_kernel_ip
 from myapp.hardware import hardware_conv2d
 from myapp.utils import get_kernel_by_type, compute_factor_for_kernel, convert_float_kernel_to_int
 
-overlay = Overlay("/home/xilinx/pynq/overlays/filter/filter.bit")
-dma = overlay.axi_dma_0
-ip = overlay.filter_kernel_0
+filter_overlay = Overlay("/home/xilinx/pynq/overlays/filter/filter.bit")
+filter_dma = filter_overlay.axi_dma_0
+filter_kernel_ip = filter_overlay.filter_kernel_0
 
 img_path = "/home/xilinx/jupyter_notebooks/220px.png"
 img = Image.open(img_path).convert("RGB")
