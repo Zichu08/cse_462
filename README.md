@@ -8,4 +8,5 @@ data, coordinates operations, and communicates results through a REST API.
 - Yifei Li
 - Weikai Rao
 ### REST API
-This project uses [Django](https://www.djangoproject.com/) as the framework for REST API
+This project uses [Django](https://www.djangoproject.com/) as the framework for REST API\
+Frontend is outdated in this repo, the working frontend is at [here](https://github.com/KennyRao/Conv2dHardwareAccelerationDjango)
